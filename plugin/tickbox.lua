@@ -3,4 +3,4 @@ if vim.g.loaded_tickbox then
 end
 vim.g.loaded_tickbox = true
 
-require("tickbox").setup()
+require("tickbox")._ensure_started()
