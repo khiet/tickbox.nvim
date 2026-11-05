@@ -7,6 +7,56 @@ describe("rendering", function()
     assert.are.equal(h.CHECKED .. "     bar", h.screen_line(2))
   end)
 
+  it("preserves indentation of nested items", function()
+    local buf = h.open({ "- [ ] parent", "    - [x] child", "\t* [ ] tabbed" })
+    vim.bo[buf].tabstop = 8
+    assert.are.equal(h.UNCHECKED .. "     parent", h.screen_line(1))
+    assert.are.equal("    " .. h.CHECKED .. "     child", h.screen_line(2))
+    assert.are.equal("        " .. h.UNCHECKED .. "     tabbed", h.screen_line(3))
+  end)
+
+  it("draws every marker style and a capital X", function()
+    h.open({ "* [ ] a", "+ [x] b", "1. [ ] c", "2) [X] d", "- [X] e" })
+    assert.are.equal(h.UNCHECKED .. "     a", h.screen_line(1))
+    assert.are.equal(h.CHECKED .. "     b", h.screen_line(2))
+    assert.are.equal(h.UNCHECKED .. "      c", h.screen_line(3))
+    assert.are.equal(h.CHECKED .. "      d", h.screen_line(4))
+    assert.are.equal(h.CHECKED .. "     e", h.screen_line(5))
+  end)
+
+  it("leaves task-looking lines inside a fence raw", function()
+    h.open({ "```", "- [ ] sample", "```", "- [ ] real" })
+    assert.are.equal("- [ ] sample", h.screen_line(2))
+    assert.are.equal(h.UNCHECKED .. "     real", h.screen_line(4))
+  end)
+
+  describe("with a fence above the viewport", function()
+    local function open_scrolled(lines)
+      for _ = 1, 50 do
+        table.insert(lines, #lines, "filler")
+      end
+      h.open(lines)
+      vim.fn.winrestview({ topline = #lines, lnum = #lines })
+    end
+
+    it("leaves lines inside it raw", function()
+      open_scrolled({ "```", "- [ ] sample" })
+      assert.are.equal("- [ ] sample", h.screen_line(1))
+    end)
+
+    it("renders below it once it has closed", function()
+      open_scrolled({ "```", "```", "- [ ] real" })
+      assert.are.equal(h.UNCHECKED .. "     real", h.screen_line(1))
+    end)
+  end)
+
+  it("picks up a fence edit above a task", function()
+    local buf = h.open({ "text", "- [ ] foo" })
+    assert.are.equal(h.UNCHECKED .. "     foo", h.screen_line(2))
+    vim.api.nvim_buf_set_lines(buf, 0, 1, false, { "```" })
+    assert.are.equal("- [ ] foo", h.screen_line(2))
+  end)
+
   it("draws nothing over other markdown", function()
     local lines = {
       "# heading",
