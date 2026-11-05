@@ -67,6 +67,7 @@ describe("insert mode", function()
   end)
 
   it("survives the revealed line being joined away", function()
+    vim.v.errmsg = ""
     h.type("G0i<BS><Esc>")
     assert.are.same({ "- [ ] one- [x] two" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
     assert.are.equal("", vim.v.errmsg)

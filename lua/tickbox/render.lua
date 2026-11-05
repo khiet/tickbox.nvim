@@ -13,7 +13,8 @@ local config
 local attached = {}
 -- Per buffer: { tick = changedtick, rows = parse.fenced result for that tick }.
 local fences = {}
--- The line left raw for typing, { win, buf, row }, or nil outside insert mode.
+-- The line left raw for typing in insert or replace mode, { win, buf, row }. Nil when
+-- not typing or when the current buffer is not attached.
 local revealed
 
 local function refresh(buf)
@@ -68,9 +69,20 @@ local function draw(buf, row)
   })
 end
 
-local function repaint(line)
-  if line and vim.api.nvim_buf_is_valid(line.buf) then
-    vim.api.nvim__redraw({ buf = line.buf, range = { line.row, line.row + 1 }, valid = false })
+-- nvim__redraw is experimental, but nothing public repaints a single line and it is
+-- what lets a mode change avoid repainting the whole window.
+local function repaint(target)
+  if target and vim.api.nvim_buf_is_valid(target.buf) then
+    vim.api.nvim__redraw({ buf = target.buf, range = { target.row, target.row + 1 } })
+  end
+end
+
+local function current_target()
+  local mode = vim.api.nvim_get_mode().mode:sub(1, 1)
+  local buf = vim.api.nvim_get_current_buf()
+  if (mode == "i" or mode == "R") and attached[buf] then
+    local win = vim.api.nvim_get_current_win()
+    return { win = win, buf = buf, row = vim.api.nvim_win_get_cursor(win)[1] - 1 }
   end
 end
 
@@ -78,12 +90,9 @@ end
 -- line being left and the line being entered are invalidated here.
 local function update_revealed()
   local previous = revealed
-  revealed = nil
-  local mode = vim.api.nvim_get_mode().mode:sub(1, 1)
-  local buf = vim.api.nvim_get_current_buf()
-  if (mode == "i" or mode == "R") and attached[buf] then
-    local win = vim.api.nvim_get_current_win()
-    revealed = { win = win, buf = buf, row = vim.api.nvim_win_get_cursor(win)[1] - 1 }
+  revealed = current_target()
+  if vim.deep_equal(previous, revealed) then
+    return
   end
   repaint(previous)
   repaint(revealed)
