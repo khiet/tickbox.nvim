@@ -6,7 +6,8 @@ vim.g.loaded_tickbox = true
 require("tickbox")._ensure_started()
 
 vim.keymap.set("n", "<Plug>(tickbox-toggle)", function()
-  vim.o.operatorfunc = "v:lua.require'tickbox.toggle'.operator"
+  -- Going through an operator is what lets `.` repeat the toggle.
+  vim.o.operatorfunc = "v:lua.require'tickbox.toggle'.toggle"
   return "g@l"
 end, { expr = true, silent = true, desc = "Toggle the task under the cursor" })
 

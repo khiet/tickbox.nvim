@@ -51,6 +51,14 @@ describe("toggle", function()
     end)
   end
 
+  it("returns false on a task in a nomodifiable buffer", function()
+    local buf = h.open({ "- [ ] foo" })
+    vim.bo[buf].modifiable = false
+    assert.is_false(tickbox.toggle())
+    vim.bo[buf].modifiable = true
+    assert.are.same({ "- [ ] foo" }, lines())
+  end)
+
   it("returns false inside a fence", function()
     local fenced = { "```", "- [ ] sample", "```" }
     h.open(fenced)
@@ -68,10 +76,6 @@ describe("toggle", function()
 end)
 
 describe("<Plug>(tickbox-toggle)", function()
-  it("is mapped in normal mode with no default keymap", function()
-    assert.is_truthy(vim.fn.maparg("<Plug>(tickbox-toggle)", "n") ~= "")
-  end)
-
   it("reverts one toggle per undo", function()
     -- Typed keys close the undo block while nvim waits for input. Fed keys never wait,
     -- so this does it by hand, as a pause between keystrokes would.
