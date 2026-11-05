@@ -42,7 +42,10 @@ end, {
   nargs = 1,
   range = true,
   desc = "Toggle tasks, or enable or disable rendering in this buffer",
-  complete = function(lead)
+  complete = function(lead, line)
+    if line:match("Tickbox%s+%S+%s") then
+      return {}
+    end
     return vim.tbl_filter(function(name)
       return vim.startswith(name, lead)
     end, { "toggle", "enable", "disable" })

@@ -113,11 +113,14 @@ end
 
 local function set_disabled(buf, value)
   buf = resolve(buf)
+  if not vim.api.nvim_buf_is_valid(buf) then
+    error("Tickbox: invalid buffer: " .. tostring(buf), 0)
+  end
   disabled[buf] = value
   vim.api.nvim__redraw({ buf = buf, valid = false })
 end
 
--- Has no effect on a buffer whose filetype is not configured.
+-- Clears `disable`. A buffer whose filetype is not configured still does not render.
 function M.enable(buf)
   set_disabled(buf, nil)
 end
