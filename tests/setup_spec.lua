@@ -6,12 +6,6 @@ describe("setup", function()
     tickbox.setup()
   end)
 
-  it("is optional: the plugin renders with defaults on load", function()
-    h.open({ "- [ ] foo", "- [x] bar" })
-    assert.are.equal(h.UNCHECKED .. "     foo", h.screen_line(1))
-    assert.are.equal(h.CHECKED .. "     bar", h.screen_line(2))
-  end)
-
   it("draws custom icons in the task text's raw column", function()
     tickbox.setup({ icons = { unchecked = "o", checked = "✓" } })
     h.open({ "- [ ] foo", "- [x] bar" })
@@ -62,6 +56,29 @@ describe("setup", function()
     vim.cmd("runtime plugin/tickbox.lua")
     h.open({ "- [ ] foo" })
     assert.are.equal("o     foo", h.screen_line(1))
+  end)
+
+  it("reveals the cursor line when setup attaches during insert mode", function()
+    h.open({ "- [ ] foo" }, "notes")
+    local line
+    h.type("i<PROBE><Esc>", function()
+      tickbox.setup({ filetypes = { "notes" } })
+      line = h.screen_line(1)
+    end)
+    assert.are.equal("- [ ] foo", line)
+  end)
+
+  it("still loads defaults after a failed setup", function()
+    tickbox.setup({ filetypes = { "notes" } })
+    -- A fresh module instance has never started, like a session's first setup call.
+    package.loaded["tickbox"] = nil
+    pcall(require("tickbox").setup, "not a table")
+    vim.g.loaded_tickbox = nil
+    vim.cmd("runtime plugin/tickbox.lua")
+    package.loaded["tickbox"] = tickbox
+
+    h.open({ "- [ ] foo" }, "markdown")
+    assert.are.equal(h.UNCHECKED .. "     foo", h.screen_line(1))
   end)
 
   it("names the minimum version on an unsupported Neovim", function()

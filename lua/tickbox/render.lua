@@ -128,6 +128,9 @@ function M.start(cfg)
     refresh(buf)
   end
 
+  -- setup may run mid-insert, where no mode change or cursor move follows.
+  update_revealed()
+
   vim.api.nvim_set_decoration_provider(ns, {
     on_win = function(_, _, buf)
       return attached[buf] == true
