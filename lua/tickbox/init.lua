@@ -1,4 +1,5 @@
 local render = require("tickbox.render")
+local toggle = require("tickbox.toggle")
 
 local M = {}
 
@@ -26,5 +27,7 @@ function M._ensure_started()
     M.setup()
   end
 end
+
+M.toggle = toggle.toggle
 
 return M
