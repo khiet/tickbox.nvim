@@ -25,11 +25,21 @@ function M.classify(line)
   }
 end
 
--- Any indentation counts, unlike CommonMark's limit of three spaces, because fences
--- nested in list items are indented further and task lists are mostly list items.
+-- Reads a run of three or more fence characters. Any indentation counts, unlike
+-- CommonMark's limit of three spaces, because fences nested in list items sit deeper.
 local function fence_run(line)
-  local run = line:match("^%s*(```+)") or line:match("^%s*(~~~+)")
-  return run, run and line:match("^%s*[`~]+(.*)$")
+  local indent, run, rest = line:match("^(%s*)(```+)(.*)$")
+  if not run then
+    indent, run, rest = line:match("^(%s*)(~~~+)(.*)$")
+  end
+  return run and { char = run:sub(1, 1), length = #run, indent = #indent, rest = rest }
+end
+
+local function closes(run, open)
+  return run.char == open.char
+    and run.length >= open.length
+    and run.indent <= open.indent + 3
+    and run.rest:match("^%s*$") ~= nil
 end
 
 -- Returns a set of the 1-indexed lines inside a fenced code block, delimiters
@@ -39,17 +49,13 @@ function M.fenced(lines)
   local inside = {}
   local open
   for i, line in ipairs(lines) do
-    local run, rest = fence_run(line)
+    local run = fence_run(line)
     if open then
       inside[i] = true
-      local closes = run
-        and run:sub(1, 1) == open:sub(1, 1)
-        and #run >= #open
-        and rest:match("^%s*$")
-      if closes then
+      if run and closes(run, open) then
         open = nil
       end
-    elseif run and not (run:sub(1, 1) == "`" and rest:find("`", 1, true)) then
+    elseif run and not (run.char == "`" and run.rest:find("`", 1, true)) then
       inside[i] = true
       open = run
     end

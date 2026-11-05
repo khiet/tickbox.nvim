@@ -72,6 +72,15 @@ describe("parse.fenced", function()
     { "closer takes no info string", { "```", "```lua", "b", "```", "c" }, { 1, 2, 3, 4 } },
     { "two backticks are not a fence", { "``", "b" }, {} },
     { "backtick in info string is not a fence", { "``` a`b", "c" }, {} },
+    { "text after a closing run does not close", { "```", "```~", "c" }, { 1, 2, 3 } },
+    { "text after a tilde run does not close", { "~~~", "~~~`", "c" }, { 1, 2, 3 } },
+    { "backtick after a tilde in the info string", { "```~`", "c" }, {} },
+    {
+      "closer indented past its opener does not close",
+      { "```markdown", "    ```", "    - [ ] sample", "    ```", "```", "c" },
+      { 1, 2, 3, 4, 5 },
+    },
+    { "closer may be indented up to three columns", { "```", "   ```", "c" }, { 1, 2 } },
     { "reopens after closing", { "```", "```", "b", "~~~", "c" }, { 1, 2, 4, 5 } },
   }
   for _, case in ipairs(cases) do
