@@ -84,12 +84,37 @@ describe("rendering", function()
     vim.api.nvim_set_hl(0, "TickboxChecked", { link = "Title" })
     require("tickbox").setup()
     assert.are.equal("Title", vim.api.nvim_get_hl(0, { name = "TickboxChecked" }).link)
-    vim.api.nvim_set_hl(0, "TickboxChecked", { link = "DiagnosticOk", default = true })
+    vim.api.nvim_set_hl(0, "TickboxChecked", { link = "DiagnosticOk" })
   end)
 
-  it("restores the highlight groups after a colorscheme clears them", function()
-    vim.cmd("highlight clear")
-    vim.cmd("doautocmd ColorScheme")
-    assert.are.equal("Comment", vim.api.nvim_get_hl(0, { name = "TickboxUnchecked" }).link)
+  it("colours each glyph with its own group", function()
+    h.open({ "- [ ] foo", "- [x] bar" })
+    local function glyph_attrs()
+      vim.cmd("redraw!")
+      return vim.fn.screenattr(1, 1), vim.fn.screenattr(2, 1)
+    end
+    vim.api.nvim_set_hl(0, "TickboxUnchecked", { bold = true })
+    vim.api.nvim_set_hl(0, "TickboxChecked", { italic = true })
+    local unchecked, checked = glyph_attrs()
+
+    -- Restyling one group must change only that group's glyph.
+    vim.api.nvim_set_hl(0, "TickboxUnchecked", { underline = true })
+    local restyled_unchecked, same_checked = glyph_attrs()
+
+    vim.api.nvim_set_hl(0, "TickboxUnchecked", { link = "Comment" })
+    vim.api.nvim_set_hl(0, "TickboxChecked", { link = "DiagnosticOk" })
+    assert.are_not.equal(unchecked, restyled_unchecked)
+    assert.are.equal(checked, same_checked)
+  end)
+
+  it("does not cover task text when scrolled horizontally", function()
+    h.open({ "- [ ] foo abcdefghij" })
+    vim.wo.wrap = false
+    -- The cursor must sit on the text, or nvim scrolls back to keep it visible.
+    vim.fn.winrestview({ col = 15, leftcol = 7 })
+    local line = h.screen_line(1)
+    vim.fn.winrestview({ col = 0, leftcol = 0 })
+    vim.wo.wrap = true
+    assert.are.equal("oo abcdefghij", line)
   end)
 end)

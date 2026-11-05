@@ -40,6 +40,9 @@ local function draw(buf, row)
       { string.rep(" ", math.max(padding, 0)) },
     },
     virt_text_pos = "overlay",
+    -- Otherwise a horizontally scrolled line keeps the glyph at the window edge,
+    -- on top of task text.
+    virt_text_hide = true,
     -- Lets cursorline and similar backgrounds show through the padding.
     hl_mode = "combine",
   })
@@ -62,10 +65,6 @@ function M.start(cfg)
     callback = function(args)
       attached[args.buf] = nil
     end,
-  })
-  vim.api.nvim_create_autocmd("ColorScheme", {
-    group = group,
-    callback = define_highlights,
   })
 
   -- When lazy-loaded, the triggering buffer's FileType may already have fired.
