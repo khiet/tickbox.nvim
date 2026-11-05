@@ -24,6 +24,12 @@ local subcommands = {
     -- Without a range, both default to the cursor line.
     require("tickbox").toggle_range(args.line1, args.line2)
   end,
+  enable = function()
+    require("tickbox").enable()
+  end,
+  disable = function()
+    require("tickbox").disable()
+  end,
 }
 
 vim.api.nvim_create_user_command("Tickbox", function(args)
@@ -35,8 +41,13 @@ vim.api.nvim_create_user_command("Tickbox", function(args)
 end, {
   nargs = 1,
   range = true,
-  desc = "Toggle tasks",
-  complete = function()
-    return vim.tbl_keys(subcommands)
+  desc = "Toggle tasks, or enable or disable rendering in this buffer",
+  complete = function(lead, line)
+    if line:match("Tickbox%s+%S+%s") then
+      return {}
+    end
+    return vim.tbl_filter(function(name)
+      return vim.startswith(name, lead)
+    end, { "toggle", "enable", "disable" })
   end,
 })
