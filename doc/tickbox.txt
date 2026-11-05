@@ -104,7 +104,8 @@ setup({opts})
 
 toggle()                                                    *tickbox.toggle()*
     Toggle the cursor line. Returns true if it edited the line, false on a
-    non-task line, a fenced line or in a nomodifiable buffer.
+    non-task line, a fenced line, in a filetype that is not configured or in a
+    nomodifiable buffer.
 
 toggle_range({first}, {last})                         *tickbox.toggle_range()*
     Toggle every task on these 1-indexed, inclusive lines as one undo step.
@@ -144,7 +145,8 @@ are left alone. Fence matching is deliberately simpler than CommonMark:
 
 - An opening fence at any indentation counts, so indented code holding a bare
   fence opens one.
-- A fence opened on a marker line, right after a `-`, is not recognised.
+- A fence may open right after a list marker. A line that starts with a
+  marker never closes a fence.
 - The end of a list item does not close its fence.
 
 In insert and replace mode the cursor line shows its raw text, so the overlay

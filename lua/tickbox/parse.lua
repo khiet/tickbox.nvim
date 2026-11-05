@@ -25,20 +25,41 @@ function M.classify(line)
   }
 end
 
--- Reads a run of three or more fence characters. Any indentation counts, unlike
--- CommonMark's limit of three spaces, because fences nested in list items sit deeper.
+-- Reads a run of three or more fence characters, which may follow a list marker. Any
+-- indentation counts, unlike CommonMark's limit of three spaces, because fences nested in
+-- list items sit deeper. `indent` is the run's column, so a closer can be compared with it.
 local function fence_run(line)
-  local indent, run, rest = line:match("^(%s*)(```+)(.*)$")
-  if not run then
-    indent, run, rest = line:match("^(%s*)(~~~+)(.*)$")
+  local bare = line:match("^%s*")
+  -- Markers may nest on one line, as in "- - ```", and a tab may follow one.
+  local prefix = bare
+  while true do
+    local marker = line:match("^[-*+][ \t]+", #prefix + 1)
+      or line:match("^%d+[.)][ \t]+", #prefix + 1)
+    if not marker then
+      break
+    end
+    prefix = prefix .. marker
   end
-  return run and { char = run:sub(1, 1), length = #run, indent = #indent, rest = rest }
+  local start = #prefix + 1
+  local run, rest = line:match("^(```+)(.*)$", start)
+  if not run then
+    run, rest = line:match("^(~~~+)(.*)$", start)
+  end
+  return run
+    and {
+      char = run:sub(1, 1),
+      length = #run,
+      indent = #prefix,
+      rest = rest,
+      on_marker = prefix ~= bare,
+    }
 end
 
 local function closes(run, open)
   return run.char == open.char
     and run.length >= open.length
     and run.indent <= open.indent + 3
+    and not run.on_marker
     and run.rest:match("^%s*$") ~= nil
 end
 
