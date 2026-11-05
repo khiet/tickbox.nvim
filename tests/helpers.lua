@@ -15,13 +15,24 @@ end
 -- The overlay is drawn with ephemeral extmarks, which never appear in
 -- nvim_buf_get_extmarks, so rendering is observed the way a user sees it: on the
 -- screen. Returns screen row `row` (1-indexed) without trailing blanks.
-function M.screen_line(row)
-  vim.cmd("redraw!")
+--
+-- `redraw!` repaints everything and so hides a missing invalidation. Pass
+-- `{ soft = true }` to assert that the plugin itself asked for the repaint.
+function M.screen_line(row, opts)
+  vim.cmd(opts and opts.soft and "redraw" or "redraw!")
   local cells = {}
   for col = 1, vim.o.columns do
     cells[col] = vim.fn.screenstring(row, col)
   end
   return (table.concat(cells):gsub("%s+$", ""))
+end
+
+-- Types `keys`, running `probe` wherever `keys` contains the literal "<PROBE>", in the
+-- mode the preceding keys left. Lets a test look around while still in insert mode.
+function M.type(keys, probe)
+  _G.__tickbox_probe = probe
+  local expanded = keys:gsub("<PROBE>", "<Cmd>lua _G.__tickbox_probe()<CR>")
+  vim.api.nvim_feedkeys(vim.keycode(expanded), "mx", false)
 end
 
 return M

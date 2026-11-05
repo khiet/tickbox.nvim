@@ -13,6 +13,9 @@ local config
 local attached = {}
 -- Per buffer: { tick = changedtick, rows = parse.fenced result for that tick }.
 local fences = {}
+-- The line left raw for typing in insert or replace mode, { win, buf, row }. Nil when
+-- not typing or when the current buffer is not attached.
+local revealed
 
 local function refresh(buf)
   attached[buf] = vim.tbl_contains(config.filetypes, vim.bo[buf].filetype) or nil
@@ -66,6 +69,35 @@ local function draw(buf, row)
   })
 end
 
+-- nvim__redraw is experimental, but nothing public repaints a single line and it is
+-- what lets a mode change avoid repainting the whole window.
+local function repaint(target)
+  if target and vim.api.nvim_buf_is_valid(target.buf) then
+    vim.api.nvim__redraw({ buf = target.buf, range = { target.row, target.row + 1 } })
+  end
+end
+
+local function current_target()
+  local mode = vim.api.nvim_get_mode().mode:sub(1, 1)
+  local buf = vim.api.nvim_get_current_buf()
+  if (mode == "i" or mode == "R") and attached[buf] then
+    local win = vim.api.nvim_get_current_win()
+    return { win = win, buf = buf, row = vim.api.nvim_win_get_cursor(win)[1] - 1 }
+  end
+end
+
+-- Neither a mode change nor moving the cursor repaints a line by itself, so both the
+-- line being left and the line being entered are invalidated here.
+local function update_revealed()
+  local previous = revealed
+  revealed = current_target()
+  if vim.deep_equal(previous, revealed) then
+    return
+  end
+  repaint(previous)
+  repaint(revealed)
+end
+
 -- Safe to call repeatedly; the latest config replaces the previous one.
 function M.start(cfg)
   config = cfg
@@ -86,6 +118,11 @@ function M.start(cfg)
     end,
   })
 
+  vim.api.nvim_create_autocmd({ "ModeChanged", "CursorMovedI" }, {
+    group = group,
+    callback = update_revealed,
+  })
+
   -- Buffers opened before the plugin loaded missed their FileType event.
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
     refresh(buf)
@@ -95,8 +132,10 @@ function M.start(cfg)
     on_win = function(_, _, buf)
       return attached[buf] == true
     end,
-    on_line = function(_, _, buf, row)
-      draw(buf, row)
+    on_line = function(_, win, buf, row)
+      if not (revealed and revealed.win == win and revealed.row == row) then
+        draw(buf, row)
+      end
     end,
   })
 end
