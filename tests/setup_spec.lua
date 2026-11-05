@@ -1,0 +1,77 @@
+local h = require("tests.helpers")
+local tickbox = require("tickbox")
+
+describe("setup", function()
+  after_each(function()
+    tickbox.setup()
+  end)
+
+  it("is optional: the plugin renders with defaults on load", function()
+    h.open({ "- [ ] foo", "- [x] bar" })
+    assert.are.equal(h.UNCHECKED .. "     foo", h.screen_line(1))
+    assert.are.equal(h.CHECKED .. "     bar", h.screen_line(2))
+  end)
+
+  it("draws custom icons in the task text's raw column", function()
+    tickbox.setup({ icons = { unchecked = "o", checked = "✓" } })
+    h.open({ "- [ ] foo", "- [x] bar" })
+    assert.are.equal("o     foo", h.screen_line(1))
+    assert.are.equal("✓     bar", h.screen_line(2))
+  end)
+
+  it("keeps the text column for a double-width icon", function()
+    tickbox.setup({ icons = { checked = "✅" } })
+    h.open({ "- [x] bar" })
+    assert.are.equal(2, vim.fn.strdisplaywidth("✅"))
+    vim.cmd("redraw!")
+    assert.are.equal("b", vim.fn.screenstring(1, 7))
+  end)
+
+  it("fills in the icon left out of a partial table", function()
+    tickbox.setup({ icons = { checked = "x" } })
+    h.open({ "- [ ] foo", "- [x] bar" })
+    assert.are.equal(h.UNCHECKED .. "     foo", h.screen_line(1))
+    assert.are.equal("x     bar", h.screen_line(2))
+  end)
+
+  it("attaches to listed filetypes only", function()
+    tickbox.setup({ filetypes = { "notes" } })
+    h.open({ "- [ ] foo" }, "notes")
+    assert.are.equal(h.UNCHECKED .. "     foo", h.screen_line(1))
+    h.open({ "- [ ] foo" }, "markdown")
+    assert.are.equal("- [ ] foo", h.screen_line(1))
+  end)
+
+  it("applies a filetype change to open buffers", function()
+    h.open({ "- [ ] foo" }, "notes")
+    assert.are.equal("- [ ] foo", h.screen_line(1))
+    tickbox.setup({ filetypes = { "notes" } })
+    assert.are.equal(h.UNCHECKED .. "     foo", h.screen_line(1))
+  end)
+
+  it("starts each call from the defaults", function()
+    tickbox.setup({ icons = { unchecked = "o" } })
+    tickbox.setup({ icons = { checked = "x" } })
+    h.open({ "- [ ] foo" })
+    assert.are.equal(h.UNCHECKED .. "     foo", h.screen_line(1))
+  end)
+
+  it("keeps options set before the plugin file is sourced", function()
+    tickbox.setup({ icons = { unchecked = "o" } })
+    vim.g.loaded_tickbox = nil
+    vim.cmd("runtime plugin/tickbox.lua")
+    h.open({ "- [ ] foo" })
+    assert.are.equal("o     foo", h.screen_line(1))
+  end)
+
+  it("names the minimum version on an unsupported Neovim", function()
+    local has = vim.fn.has
+    vim.fn.has = function(feature)
+      return feature == "nvim-0.10" and 0 or has(feature)
+    end
+    local ok, err = pcall(tickbox.setup)
+    vim.fn.has = has
+    assert.is_false(ok)
+    assert.is_truthy(tostring(err):find("0.10", 1, true))
+  end)
+end)
