@@ -3,7 +3,6 @@ local M = {}
 M.UNCHECKED = "󰄱"
 M.CHECKED = "󰱒"
 
--- Opens a fresh buffer in the only window and returns it.
 function M.open(lines, filetype)
   vim.cmd("enew!")
   local buf = vim.api.nvim_get_current_buf()

@@ -67,7 +67,7 @@ function M.start(cfg)
     end,
   })
 
-  -- When lazy-loaded, the triggering buffer's FileType may already have fired.
+  -- Buffers opened before the plugin loaded missed their FileType event.
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
     refresh(buf)
   end
