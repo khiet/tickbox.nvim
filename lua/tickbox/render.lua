@@ -105,6 +105,11 @@ local function resolve(buf)
   return (buf == nil or buf == 0) and vim.api.nvim_get_current_buf() or buf
 end
 
+-- Whether the buffer's filetype is configured, regardless of `disable`.
+function M.is_attached(buf)
+  return attached[resolve(buf)] == true
+end
+
 -- Whether the buffer renders: its filetype is configured and it has not been disabled.
 function M.is_enabled(buf)
   buf = resolve(buf)

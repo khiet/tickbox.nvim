@@ -1,13 +1,15 @@
 local parse = require("tickbox.parse")
+local render = require("tickbox.render")
 
 local M = {}
 
 -- Flips every task on lines `first` through `last` (1-indexed, inclusive; lines outside
 -- the buffer are ignored). Returns true if any line was edited. Returns false when none
--- were: only non-task or fenced lines, or a nomodifiable buffer. All edits from one call
+-- were: only non-task or fenced lines, a filetype that is not configured, or a
+-- nomodifiable buffer. Disabling rendering does not stop toggling. All edits from one call
 -- are one undo step.
 function M.toggle_range(first, last)
-  if not vim.bo.modifiable then
+  if not vim.bo.modifiable or not render.is_attached() then
     return false
   end
   -- Fence state only depends on the lines above, so the rest need not be read.

@@ -81,6 +81,11 @@ describe("parse.fenced", function()
       { 1, 2, 3, 4, 5 },
     },
     { "closer may be indented up to three columns", { "```", "   ```", "c" }, { 1, 2 } },
+    { "opened on a bullet", { "- ```", "  - [ ] sample", "  ```", "c" }, { 1, 2, 3 } },
+    { "opened on an ordered marker", { "1. ~~~md", "   b", "   ~~~", "c" }, { 1, 2, 3 } },
+    { "indented marker", { "  * ```", "    b", "    ```", "c" }, { 1, 2, 3 } },
+    { "marker line does not close", { "```", "- ```", "b", "```", "c" }, { 1, 2, 3, 4 } },
+    { "marker with one fence char is not a fence", { "- `a`", "b" }, {} },
     { "reopens after closing", { "```", "```", "b", "~~~", "c" }, { 1, 2, 4, 5 } },
   }
   for _, case in ipairs(cases) do

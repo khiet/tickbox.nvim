@@ -73,7 +73,7 @@ vim.api.nvim_create_autocmd("FileType", {
 | Function | Effect |
 | --- | --- |
 | `setup(opts?)` | See [Options](#options) |
-| `toggle()` | Toggle the cursor line. Returns `true` if it edited the line, `false` on a non-task line, a fenced line or in a nomodifiable buffer |
+| `toggle()` | Toggle the cursor line. Returns `true` if it edited the line, `false` on a non-task line, a fenced line, in a filetype that is not configured or in a nomodifiable buffer |
 | `toggle_range(first, last)` | Toggle every task on these 1-indexed, inclusive lines as one undo step. Returns `true` if any line changed |
 | `enable(buf?)` | Clear `disable`. A filetype that is not configured still does not render |
 | `disable(buf?)` | Stop rendering the buffer |
@@ -97,7 +97,7 @@ A line with optional indentation, a marker (`-`, `*`, `+`, or digits followed by
 Lines inside ``` or ~~~ fences are left alone. Fence matching is deliberately simpler than CommonMark:
 
 - An opening fence at any indentation counts, so indented code holding a bare ``` opens a fence.
-- A fence opened on a marker line, such as `` - ``` ``, is not recognised.
+- A fence may open right after a list marker, as in `` - ``` ``.
 - The end of a list item does not close its fence.
 
 In insert and replace mode the cursor line shows its raw text, so the overlay never covers what you are editing.

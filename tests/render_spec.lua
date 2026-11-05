@@ -50,6 +50,12 @@ describe("rendering", function()
     end)
   end)
 
+  it("handles a fence opened on a list marker", function()
+    h.open({ "- ```", "  - [ ] sample", "  ```", "- [ ] real" })
+    assert.are.equal("  - [ ] sample", h.screen_line(2))
+    assert.are.equal(h.UNCHECKED .. "     real", h.screen_line(4))
+  end)
+
   it("picks up a fence edit above a task", function()
     local buf = h.open({ "text", "- [ ] foo" })
     assert.are.equal(h.UNCHECKED .. "     foo", h.screen_line(2))
