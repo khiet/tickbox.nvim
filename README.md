@@ -1,28 +1,50 @@
 # tickbox.nvim
 
-Render GitHub-style task lists in markdown buffers and toggle them from normal mode.
+Render and toggle GitHub-style task lists in markdown.
 
-- `- [ ] task` renders as a hollow box, `- [x] task` as a ticked box. Nothing else in the buffer is changed.
-- One mapping toggles the task under the cursor, or every task in a visual range.
+## Features
+
+- `- [ ] task` renders as a hollow box and `- [x] task` as a ticked box. Nothing else in the buffer changes.
+- One mapping toggles the task under the cursor, or every task in a visual selection.
 - No treesitter, no `conceallevel`, no default keymaps.
 
-Requires Neovim 0.10 or later. The default glyphs need a Nerd Font; see [Options](#options) for Unicode ones.
+## Requirements
 
-## Install
+- Neovim 0.10 or later
+- A [Nerd Font](https://www.nerdfonts.com) for the default icons, or set Unicode ones in [Configuration](#configuration)
+
+## Installation
 
 With [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
-{ "khiet/tickbox.nvim", ft = "markdown" }
+{
+  "khiet/tickbox.nvim",
+  ft = "markdown",
+  opts = {},
+  keys = {
+    { "<leader>t", "<Plug>(tickbox-toggle)", mode = { "n", "x" }, ft = "markdown", desc = "Toggle task" },
+  },
+}
 ```
 
-To pass [options](#options), add `opts = { ... }`. Extra `filetypes` also need listing in `ft`, or the plugin stays unloaded until a markdown buffer opens.
+Extra `filetypes` also need listing in both `ft` fields, or the plugin stays unloaded and unmapped there.
+
+<details>
+<summary>vim.pack (Neovim 0.12+)</summary>
+
+```lua
+vim.pack.add({ "https://github.com/khiet/tickbox.nvim" })
+vim.keymap.set({ "n", "x" }, "<leader>t", "<Plug>(tickbox-toggle)")
+```
+
+</details>
 
 Any other plugin manager, or `packadd`, works too: the plugin attaches itself on `FileType`, and calling `setup` is optional.
 
-## Options
+## Configuration
 
-`require("tickbox").setup(opts)` with these defaults:
+`require("tickbox").setup(opts)`, or lazy.nvim's `opts`, with these defaults:
 
 ```lua
 require("tickbox").setup({
@@ -33,7 +55,9 @@ require("tickbox").setup({
 
 Each call starts from the defaults rather than the previous call's options. Below Neovim 0.10 it raises an error naming the minimum version. Without a Nerd Font, try `icons = { unchecked = "☐", checked = "☑" }`.
 
-## Commands
+## Usage
+
+### Commands
 
 | Command | Effect |
 | --- | --- |
@@ -43,7 +67,7 @@ Each call starts from the defaults rather than the previous call's options. Belo
 
 Toggling keeps working while rendering is disabled.
 
-## Mapping
+### Mapping
 
 The plugin ships no default keymap. `<Plug>(tickbox-toggle)` works in normal mode, where `.` repeats it, and in visual mode, where it toggles every selected task:
 
@@ -68,20 +92,20 @@ vim.api.nvim_create_autocmd("FileType", {
 })
 ```
 
-## Lua API
+## API
 
 | Function | Effect |
 | --- | --- |
-| `setup(opts?)` | See [Options](#options) |
+| `setup(opts?)` | See [Configuration](#configuration) |
 | `toggle()` | Toggle the cursor line. Returns `true` if it edited the line, `false` on a non-task line, a fenced line, in a filetype that is not configured or in a nomodifiable buffer |
 | `toggle_range(first, last)` | Toggle every task on these 1-indexed, inclusive lines as one undo step. Returns `true` if any line changed |
 | `enable(buf?)` | Clear `disable`. A filetype that is not configured still does not render |
 | `disable(buf?)` | Stop rendering the buffer |
 | `is_enabled(buf?)` | Whether the buffer renders: its filetype is configured and it is not disabled |
 
-`buf` defaults to the current buffer.
+`buf` defaults to the current buffer. The same reference lives in `:help tickbox`.
 
-## Highlight groups
+## Highlights
 
 | Group | Default link |
 | --- | --- |
@@ -90,9 +114,9 @@ vim.api.nvim_create_autocmd("FileType", {
 
 Both are defined with `default = true`, so a colorscheme or your own definition wins.
 
-## What counts as a task
+## Task syntax
 
-A line with optional indentation, a marker (`-`, `*`, `+`, or digits followed by `.` or `)`), spaces, `[ ]`, `[x]` or `[X]`, and then at least one space. So `- [ ]x` and a line ending in `- [ ]` stay raw.
+A task is a line with optional indentation, a marker (`-`, `*`, `+`, or digits followed by `.` or `)`), spaces, `[ ]`, `[x]` or `[X]`, and then at least one space. So `- [ ]x` and a line ending in `- [ ]` stay raw.
 
 Lines inside ``` or ~~~ fences are left alone. Fence matching is deliberately simpler than CommonMark:
 
@@ -102,6 +126,10 @@ Lines inside ``` or ~~~ fences are left alone. Fence matching is deliberately si
 
 In insert and replace mode the cursor line shows its raw text, so the overlay never covers what you are editing.
 
+## Alternatives
+
+- [render-markdown.nvim](https://github.com/MeanderingProgrammer/render-markdown.nvim) and [markview.nvim](https://github.com/OXY2DEV/markview.nvim) render the whole markdown document, checkboxes included. Pick one of them for full rendering; pick tickbox for task lists alone, without treesitter.
+
 ## Contributing
 
 `make test` runs the specs headless with [plenary.nvim](https://github.com/nvim-lua/plenary.nvim). It looks for plenary in `~/.local/share/nvim/lazy/plenary.nvim`, where lazy.nvim installs it. Otherwise clone it and set `PLENARY_DIR`:
@@ -110,3 +138,7 @@ In insert and replace mode the cursor line shows its raw text, so the overlay ne
 git clone https://github.com/nvim-lua/plenary.nvim /path/to/plenary.nvim
 make test PLENARY_DIR=/path/to/plenary.nvim
 ```
+
+## License
+
+[MIT](LICENSE)
