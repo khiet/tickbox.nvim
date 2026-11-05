@@ -30,7 +30,16 @@ end
 -- list items sit deeper. `indent` is the run's column, so a closer can be compared with it.
 local function fence_run(line)
   local bare = line:match("^%s*")
-  local prefix = line:match("^%s*[-*+] +") or line:match("^%s*%d+[.)] +") or bare
+  -- Markers may nest on one line, as in "- - ```", and a tab may follow one.
+  local prefix = bare
+  while true do
+    local marker = line:match("^[-*+][ \t]+", #prefix + 1)
+      or line:match("^%d+[.)][ \t]+", #prefix + 1)
+    if not marker then
+      break
+    end
+    prefix = prefix .. marker
+  end
   local start = #prefix + 1
   local run, rest = line:match("^(```+)(.*)$", start)
   if not run then

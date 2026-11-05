@@ -84,6 +84,8 @@ describe("parse.fenced", function()
     { "opened on a bullet", { "- ```", "  - [ ] sample", "  ```", "c" }, { 1, 2, 3 } },
     { "opened on an ordered marker", { "1. ~~~md", "   b", "   ~~~", "c" }, { 1, 2, 3 } },
     { "indented marker", { "  * ```", "    b", "    ```", "c" }, { 1, 2, 3 } },
+    { "tab after the marker", { "-\t```", "  - [ ] sample", "  ```", "c" }, { 1, 2, 3 } },
+    { "nested markers on one line", { "- - ```", "    b", "    ```", "c" }, { 1, 2, 3 } },
     { "marker line does not close", { "```", "- ```", "b", "```", "c" }, { 1, 2, 3, 4 } },
     { "marker with one fence char is not a fence", { "- `a`", "b" }, {} },
     { "reopens after closing", { "```", "```", "b", "~~~", "c" }, { 1, 2, 4, 5 } },

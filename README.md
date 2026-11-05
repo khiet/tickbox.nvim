@@ -97,7 +97,7 @@ A line with optional indentation, a marker (`-`, `*`, `+`, or digits followed by
 Lines inside ``` or ~~~ fences are left alone. Fence matching is deliberately simpler than CommonMark:
 
 - An opening fence at any indentation counts, so indented code holding a bare ``` opens a fence.
-- A fence may open right after a list marker, as in `` - ``` ``.
+- A fence may open right after a list marker, as in `` - ``` ``. A line that starts with a marker never closes a fence.
 - The end of a list item does not close its fence.
 
 In insert and replace mode the cursor line shows its raw text, so the overlay never covers what you are editing.
