@@ -1,0 +1,155 @@
+*tickbox.txt*    Render and toggle GitHub-style task lists in markdown
+
+==============================================================================
+CONTENTS                                                             *tickbox*
+
+  Introduction ............................ |tickbox-intro|
+  Install ................................. |tickbox-install|
+  Options ................................. |tickbox-options|
+  Commands ................................ |tickbox-commands|
+  Mapping ................................. |tickbox-mapping|
+  Lua API ................................. |tickbox-api|
+  Highlight groups ........................ |tickbox-highlights|
+  What counts as a task ................... |tickbox-tasks|
+  Contributing ............................ |tickbox-contributing|
+
+==============================================================================
+INTRODUCTION                                                   *tickbox-intro*
+
+tickbox.nvim draws `- [ ] task` as a hollow box and `- [x] task` as a ticked
+box. Nothing else in the buffer is changed, and rendering never edits the
+text. One mapping toggles the task under the cursor, or every task in a visual
+range. There is no treesitter dependency, no 'conceallevel' change and no
+default keymap.
+
+Requires Neovim 0.10 or later. The default glyphs need a Nerd Font; see
+|tickbox-options| for Unicode ones.
+
+==============================================================================
+INSTALL                                                      *tickbox-install*
+
+With lazy.nvim: >lua
+    { "khiet/tickbox.nvim", ft = "markdown" }
+<
+Any other plugin manager, or |:packadd|, works too: the plugin attaches itself
+on |FileType|, and calling |tickbox.setup()| is optional.
+
+==============================================================================
+OPTIONS                                    *tickbox-options* *tickbox.setup()*
+
+require("tickbox").setup({opts})
+
+Defaults: >lua
+    require("tickbox").setup({
+      filetypes = { "markdown" },
+      icons = { unchecked = "󰄱", checked = "󰱒" },
+    })
+<
+    filetypes   Filetypes to render. Replaces the default list.
+    icons       Glyphs for the `unchecked` and `checked` states. Either one
+                may be left out. Without a Nerd Font, try "☐" and "☑".
+
+Each call starts from the defaults rather than the previous call's options.
+Below Neovim 0.10 it raises an error naming the minimum version.
+
+==============================================================================
+COMMANDS                                         *tickbox-commands* *:Tickbox*
+
+`:Tickbox toggle`
+    Toggle the cursor line, or every task in a range, such as
+    `:'<,'>Tickbox toggle`.
+
+`:Tickbox enable`
+    Render the current buffer again.
+
+`:Tickbox disable`
+    Show the raw markdown of the current buffer, until `:Tickbox enable` or
+    the buffer is wiped. Toggling keeps working while rendering is disabled.
+
+==============================================================================
+MAPPING                                *tickbox-mapping* *<Plug>(tickbox-toggle)*
+
+The plugin ships no default keymap. <Plug>(tickbox-toggle) works in normal
+mode, where |.| repeats it, and in visual mode, where it toggles every selected
+task: >lua
+    vim.keymap.set({ "n", "x" }, "<leader>t", "<Plug>(tickbox-toggle)")
+<
+                                                     *tickbox-fallback-recipe*
+`toggle()` returns false when it did nothing, so a mapping can do something
+else on other lines. This maps <leader><leader> to toggle on a task line and
+otherwise switch to the alternate buffer with <C-^>. Calling `toggle()` directly
+means |.| does not repeat it: >lua
+    vim.api.nvim_create_autocmd("FileType", {
+      pattern = "markdown",
+      callback = function(args)
+        vim.keymap.set("n", "<leader><leader>", function()
+          if not require("tickbox").toggle() then
+            vim.cmd.normal({ vim.keycode("<C-^>"), bang = true })
+          end
+        end, { buffer = args.buf })
+      end,
+    })
+<
+==============================================================================
+LUA API                                                          *tickbox-api*
+
+`buf` defaults to the current buffer.
+
+setup({opts})                                                See |tickbox.setup()|.
+
+toggle()                                                    *tickbox.toggle()*
+    Toggle the cursor line. Returns true if it edited the line, false on a
+    non-task line, a fenced line or in a nomodifiable buffer.
+
+toggle_range({first}, {last})                         *tickbox.toggle_range()*
+    Toggle every task on these 1-indexed, inclusive lines as one undo step.
+    Returns true if any line changed.
+
+enable({buf})                                               *tickbox.enable()*
+    Clear `disable`. A filetype that is not configured still does not render.
+
+disable({buf})                                             *tickbox.disable()*
+    Stop rendering the buffer.
+
+is_enabled({buf})                                       *tickbox.is_enabled()*
+    Whether the buffer renders: its filetype is configured and it is not
+    disabled.
+
+==============================================================================
+HIGHLIGHT GROUPS                                          *tickbox-highlights*
+
+                                                            *TickboxUnchecked*
+TickboxUnchecked    Unchecked glyph. Links to |hl-Comment| by default.
+
+                                                              *TickboxChecked*
+TickboxChecked      Checked glyph. Links to `DiagnosticOk` by default.
+
+Both are defined with `default = true`, so a colorscheme or your own definition
+wins.
+
+==============================================================================
+WHAT COUNTS AS A TASK                                          *tickbox-tasks*
+
+A line with optional indentation, a marker (`-`, `*`, `+`, or digits followed
+by `.` or `)`), spaces, `[ ]`, `[x]` or `[X]`, and then at least one space. So
+`- [ ]x` and a line ending in `- [ ]` stay raw.
+
+Lines inside ``` or ~~~ fences are left alone. Fence matching is deliberately
+simpler than CommonMark:
+
+- An opening fence at any indentation counts, so indented code holding a bare
+  ``` opens a fence.
+- A fence opened on a marker line is not recognised.
+- The end of a list item does not close its fence.
+
+In insert and replace mode the cursor line shows its raw text, so the overlay
+never covers what you are editing.
+
+==============================================================================
+CONTRIBUTING                                            *tickbox-contributing*
+
+`make test` runs the plenary.nvim specs headless. It looks for plenary where
+lazy.nvim installs it; set PLENARY_DIR to use another path: >sh
+    make test PLENARY_DIR=/path/to/plenary.nvim
+<
+ vim:tw=78:ts=8:ft=help:norl:
