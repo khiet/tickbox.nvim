@@ -11,6 +11,8 @@ local group = vim.api.nvim_create_augroup("tickbox", { clear = true })
 local config
 -- Buffers whose filetype is in config.filetypes. Keyed by buffer number.
 local attached = {}
+-- Per buffer: { tick = changedtick, rows = parse.fenced result for that tick }.
+local fences = {}
 
 local function refresh(buf)
   attached[buf] = vim.tbl_contains(config.filetypes, vim.bo[buf].filetype) or nil
@@ -22,7 +24,23 @@ local function define_highlights()
   vim.api.nvim_set_hl(0, "TickboxChecked", { link = "DiagnosticOk", default = true })
 end
 
+-- A fence can open anywhere above the viewport, so this reads the whole buffer. The
+-- cache limits that to once per buffer change rather than once per redraw.
+local function fenced_rows(buf)
+  local tick = vim.api.nvim_buf_get_changedtick(buf)
+  local cached = fences[buf]
+  if not cached or cached.tick ~= tick then
+    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+    cached = { tick = tick, rows = parse.fenced(lines) }
+    fences[buf] = cached
+  end
+  return cached.rows
+end
+
 local function draw(buf, row)
+  if fenced_rows(buf)[row + 1] then
+    return
+  end
   local line = vim.api.nvim_buf_get_lines(buf, row, row + 1, false)[1]
   local task = line and parse.classify(line)
   if not task then
@@ -64,6 +82,7 @@ function M.start(cfg)
     group = group,
     callback = function(args)
       attached[args.buf] = nil
+      fences[args.buf] = nil
     end,
   })
 
