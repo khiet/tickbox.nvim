@@ -11,6 +11,9 @@ local group = vim.api.nvim_create_augroup("tickbox", { clear = true })
 local config
 -- Buffers whose filetype is in config.filetypes. Keyed by buffer number.
 local attached = {}
+-- Buffers turned off with `disable`. Separate from `attached` so the choice survives the
+-- FileType event a :e reload fires, and lasts until `enable` or the buffer is wiped.
+local disabled = {}
 -- Per buffer: { tick = changedtick, rows = parse.fenced result for that tick }.
 local fences = {}
 -- The line left raw for typing in insert or replace mode, { win, buf, row }. Nil when
@@ -98,6 +101,31 @@ local function update_revealed()
   repaint(revealed)
 end
 
+local function resolve(buf)
+  return (buf == nil or buf == 0) and vim.api.nvim_get_current_buf() or buf
+end
+
+-- Whether the buffer renders: its filetype is configured and it has not been disabled.
+function M.is_enabled(buf)
+  buf = resolve(buf)
+  return attached[buf] == true and not disabled[buf]
+end
+
+local function set_disabled(buf, value)
+  buf = resolve(buf)
+  disabled[buf] = value
+  vim.api.nvim__redraw({ buf = buf, valid = false })
+end
+
+-- Has no effect on a buffer whose filetype is not configured.
+function M.enable(buf)
+  set_disabled(buf, nil)
+end
+
+function M.disable(buf)
+  set_disabled(buf, true)
+end
+
 -- Safe to call repeatedly; the latest config replaces the previous one.
 function M.start(cfg)
   config = cfg
@@ -114,6 +142,7 @@ function M.start(cfg)
     group = group,
     callback = function(args)
       attached[args.buf] = nil
+      disabled[args.buf] = nil
       fences[args.buf] = nil
     end,
   })
@@ -133,7 +162,7 @@ function M.start(cfg)
 
   vim.api.nvim_set_decoration_provider(ns, {
     on_win = function(_, _, buf)
-      return attached[buf] == true
+      return M.is_enabled(buf)
     end,
     on_line = function(_, win, buf, row)
       if not (revealed and revealed.win == win and revealed.row == row) then

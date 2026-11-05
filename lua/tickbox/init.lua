@@ -28,6 +28,9 @@ function M._ensure_started()
   end
 end
 
+M.enable = render.enable
+M.disable = render.disable
+M.is_enabled = render.is_enabled
 M.toggle = toggle.toggle
 M.toggle_range = toggle.toggle_range
 
