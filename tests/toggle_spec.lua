@@ -127,6 +127,14 @@ describe("toggling a range", function()
     "- [ ] outside",
   }
 
+  local first_task_toggled = {
+    "# heading",
+    "- [x] one",
+    "- plain",
+    "- [X] two",
+    "- [ ] outside",
+  }
+
   it("flips only the task lines with the visual mapping", function()
     h.open(mixed)
     h.type("Vjjj<Plug>(tickbox-toggle)")
@@ -136,7 +144,13 @@ describe("toggling a range", function()
   it("handles a selection made upwards", function()
     h.open(mixed)
     h.type("3GVkk<Plug>(tickbox-toggle)")
-    assert.are.same({ "# heading", "- [x] one", "- plain", "- [X] two", "- [ ] outside" }, lines())
+    assert.are.same(first_task_toggled, lines())
+  end)
+
+  it("finishes before keys queued behind the mapping run", function()
+    h.open(mixed)
+    h.type("jVj<Plug>(tickbox-toggle)jdd")
+    assert.are.same({ "# heading", "- [x] one", "- plain", "- [ ] outside" }, lines())
   end)
 
   it("leaves visual mode", function()
@@ -169,7 +183,7 @@ describe("toggling a range", function()
     h.open(mixed)
     h.type("jV<Esc>")
     vim.cmd("'<,'>Tickbox toggle")
-    assert.are.same({ "# heading", "- [x] one", "- plain", "- [X] two", "- [ ] outside" }, lines())
+    assert.are.same(first_task_toggled, lines())
   end)
 
   it("skips fenced lines inside the range", function()
@@ -181,6 +195,13 @@ describe("toggling a range", function()
   it("honours a fence that opens above the range", function()
     h.open({ "```", "- [ ] sample" })
     assert.is_false(tickbox.toggle_range(2, 2))
+  end)
+
+  it("ignores lines outside the buffer", function()
+    h.open({ "- [ ] one", "- [ ] two" })
+    assert.is_true(tickbox.toggle_range(0, 99))
+    assert.are.same({ "- [x] one", "- [x] two" }, lines())
+    assert.is_false(tickbox.toggle_range(20, 30))
   end)
 
   it("returns whether any line changed", function()

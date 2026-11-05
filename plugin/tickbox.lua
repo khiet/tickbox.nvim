@@ -13,17 +13,16 @@ end, { expr = true, silent = true, desc = "Toggle the task under the cursor" })
 
 vim.keymap.set("x", "<Plug>(tickbox-toggle)", function()
   local anchor, cursor = vim.fn.line("v"), vim.fn.line(".")
-  vim.api.nvim_feedkeys(vim.keycode("<Esc>"), "nx", false)
+  -- Not feedkeys: that would run keys queued behind the mapping, like the rest of a
+  -- macro, while still in visual mode.
+  vim.cmd.normal({ vim.keycode("<Esc>"), bang = true })
   require("tickbox").toggle_range(math.min(anchor, cursor), math.max(anchor, cursor))
 end, { silent = true, desc = "Toggle every task in the selection" })
 
 local subcommands = {
   toggle = function(args)
-    if args.range > 0 then
-      require("tickbox").toggle_range(args.line1, args.line2)
-    else
-      require("tickbox").toggle()
-    end
+    -- Without a range, both default to the cursor line.
+    require("tickbox").toggle_range(args.line1, args.line2)
   end,
 }
 

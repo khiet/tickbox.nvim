@@ -2,9 +2,10 @@ local parse = require("tickbox.parse")
 
 local M = {}
 
--- Flips every task on lines `first` through `last` (1-indexed, inclusive). Returns true
--- if any line was edited. Returns false when none were: only non-task or fenced lines,
--- or a nomodifiable buffer. All edits from one call are one undo step.
+-- Flips every task on lines `first` through `last` (1-indexed, inclusive; lines outside
+-- the buffer are ignored). Returns true if any line was edited. Returns false when none
+-- were: only non-task or fenced lines, or a nomodifiable buffer. All edits from one call
+-- are one undo step.
 function M.toggle_range(first, last)
   if not vim.bo.modifiable then
     return false
@@ -13,7 +14,7 @@ function M.toggle_range(first, last)
   local lines = vim.api.nvim_buf_get_lines(0, 0, last, false)
   local fenced = parse.fenced(lines)
   local changed = false
-  for lnum = first, last do
+  for lnum = math.max(first, 1), #lines do
     local task = not fenced[lnum] and parse.classify(lines[lnum])
     if task then
       local interior = task.state == "checked" and " " or "x"
