@@ -16,6 +16,8 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim):
 { "khiet/tickbox.nvim", ft = "markdown" }
 ```
 
+To pass [options](#options), add `opts = { ... }`. Extra `filetypes` also need listing in `ft`, or the plugin stays unloaded until a markdown buffer opens.
+
 Any other plugin manager, or `packadd`, works too: the plugin attaches itself on `FileType`, and calling `setup` is optional.
 
 ## Options
@@ -29,7 +31,7 @@ require("tickbox").setup({
 })
 ```
 
-Each call starts from the defaults rather than the previous call's options. Without a Nerd Font, try `icons = { unchecked = "☐", checked = "☑" }`.
+Each call starts from the defaults rather than the previous call's options. Below Neovim 0.10 it raises an error naming the minimum version. Without a Nerd Font, try `icons = { unchecked = "☐", checked = "☑" }`.
 
 ## Commands
 
@@ -51,14 +53,14 @@ vim.keymap.set({ "n", "x" }, "<leader>t", "<Plug>(tickbox-toggle)")
 
 ### Fallback recipe
 
-`toggle()` returns `false` when it did nothing, so a mapping can do something else on other lines. This maps `<leader><leader>` to toggle on a task line and otherwise switch to the alternate buffer with `<C-^>`. Calling `toggle()` directly means `.` does not repeat it:
+`toggle()` returns `false` when it did nothing, so a mapping can do something else on other lines. This maps `<leader><leader>` to toggle on a task line and otherwise switch to the alternate buffer with `<C-^>`, if there is one. Calling `toggle()` directly means `.` does not repeat it:
 
 ```lua
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "markdown",
   callback = function(args)
     vim.keymap.set("n", "<leader><leader>", function()
-      if not require("tickbox").toggle() then
+      if not require("tickbox").toggle() and vim.fn.bufnr("#") ~= -1 then
         vim.cmd.normal({ vim.keycode("<C-^>"), bang = true })
       end
     end, { buffer = args.buf })
@@ -102,8 +104,9 @@ In insert and replace mode the cursor line shows its raw text, so the overlay ne
 
 ## Contributing
 
-`make test` runs the [plenary.nvim](https://github.com/nvim-lua/plenary.nvim) specs headless. It looks for plenary where lazy.nvim installs it; set `PLENARY_DIR` to use another path:
+`make test` runs the specs headless with [plenary.nvim](https://github.com/nvim-lua/plenary.nvim). It looks for plenary in `~/.local/share/nvim/lazy/plenary.nvim`, where lazy.nvim installs it. Otherwise clone it and set `PLENARY_DIR`:
 
 ```sh
+git clone https://github.com/nvim-lua/plenary.nvim /path/to/plenary.nvim
 make test PLENARY_DIR=/path/to/plenary.nvim
 ```

@@ -3,30 +3,49 @@ local function read(path)
 end
 
 -- Everything a user can set or call. Listed by hand because the docs are checked
--- against what the plugin promises, not against its internal tables.
+-- against what the plugin promises, not against its internal tables. Terms are specific
+-- so one cannot pass by matching inside another, as "checked" would inside "unchecked".
 local surface = {
-  "filetypes",
-  "icons",
-  "unchecked",
-  "checked",
+  "filetypes = {",
+  "icons = {",
+  "unchecked = ",
+  " checked = ",
   ":Tickbox toggle",
   ":Tickbox enable",
   ":Tickbox disable",
   "<Plug>(tickbox-toggle)",
   "TickboxUnchecked",
   "TickboxChecked",
-  "setup",
-  "toggle()",
-  "toggle_range",
-  "enable",
-  "disable",
-  "is_enabled",
+  "DiagnosticOk",
+  'require("tickbox").setup(',
+  'require("tickbox").toggle()',
+  'vim.fn.bufnr("#") ~= -1',
   "make test",
+  "PLENARY_DIR",
+}
+
+local api = {
+  ["README.md"] = {
+    "`setup(opts?)`",
+    "`toggle()`",
+    "`toggle_range(first, last)`",
+    "`enable(buf?)`",
+    "`disable(buf?)`",
+    "`is_enabled(buf?)`",
+  },
+  ["doc/tickbox.txt"] = {
+    "*tickbox.setup()*",
+    "*tickbox.toggle()*",
+    "*tickbox.toggle_range()*",
+    "*tickbox.enable()*",
+    "*tickbox.disable()*",
+    "*tickbox.is_enabled()*",
+  },
 }
 
 describe("docs", function()
   for _, path in ipairs({ "README.md", "doc/tickbox.txt" }) do
-    for _, term in ipairs(surface) do
+    for _, term in ipairs(vim.list_extend(vim.deepcopy(surface), api[path])) do
       it(path .. " covers " .. term, function()
         assert.is_truthy(read(path):find(term, 1, true))
       end)
@@ -58,11 +77,17 @@ describe("docs", function()
       ":Tickbox",
       "<Plug>(tickbox-toggle)",
       "TickboxChecked",
+      "TickboxUnchecked",
     }) do
       it("opens the doc for " .. tag, function()
         vim.cmd("help " .. vim.fn.escape(tag, " "))
         assert.are.equal("tickbox.txt", vim.fn.expand("%:t"))
       end)
     end
+
+    it("defines the plain tickbox tag", function()
+      -- `:help tickbox` alone would also land on the file through tickbox.txt.
+      assert.is_truthy(("\n" .. read("doc/tags")):find("\ntickbox\t", 1, true))
+    end)
   end)
 end)
