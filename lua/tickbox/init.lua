@@ -29,5 +29,6 @@ function M._ensure_started()
 end
 
 M.toggle = toggle.toggle
+M.toggle_range = toggle.toggle_range
 
 return M

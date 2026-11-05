@@ -1,6 +1,12 @@
 local h = require("tests.helpers")
 local tickbox = require("tickbox")
 
+-- Typed keys close the undo block while nvim waits for input. Fed keys never wait, so
+-- this does it by hand, as a pause between keystrokes would.
+local function pause()
+  vim.bo.undolevels = vim.bo.undolevels
+end
+
 local function lines()
   return vim.api.nvim_buf_get_lines(0, 0, -1, false)
 end
@@ -77,11 +83,6 @@ end)
 
 describe("<Plug>(tickbox-toggle)", function()
   it("reverts one toggle per undo", function()
-    -- Typed keys close the undo block while nvim waits for input. Fed keys never wait,
-    -- so this does it by hand, as a pause between keystrokes would.
-    local function pause()
-      vim.bo.undolevels = vim.bo.undolevels
-    end
     h.open({ "- [ ] foo" })
     pause()
     h.type("<Plug>(tickbox-toggle)")
@@ -107,6 +108,113 @@ describe("<Plug>(tickbox-toggle)", function()
     h.type("<Plug>(tickbox-toggle)")
     h.type("j.")
     assert.are.same({ "- [x] one", "- [x] two" }, lines())
+  end)
+end)
+
+describe("toggling a range", function()
+  local mixed = {
+    "# heading",
+    "- [ ] one",
+    "- plain",
+    "- [X] two",
+    "- [ ] outside",
+  }
+  local mixed_toggled = {
+    "# heading",
+    "- [x] one",
+    "- plain",
+    "- [ ] two",
+    "- [ ] outside",
+  }
+
+  local first_task_toggled = {
+    "# heading",
+    "- [x] one",
+    "- plain",
+    "- [X] two",
+    "- [ ] outside",
+  }
+
+  it("flips only the task lines with the visual mapping", function()
+    h.open(mixed)
+    h.type("Vjjj<Plug>(tickbox-toggle)")
+    assert.are.same(mixed_toggled, lines())
+  end)
+
+  it("handles a selection made upwards", function()
+    h.open(mixed)
+    h.type("3GVkk<Plug>(tickbox-toggle)")
+    assert.are.same(first_task_toggled, lines())
+  end)
+
+  it("finishes before keys queued behind the mapping run", function()
+    h.open(mixed)
+    h.type("jVj<Plug>(tickbox-toggle)jdd")
+    assert.are.same({ "# heading", "- [x] one", "- plain", "- [ ] outside" }, lines())
+  end)
+
+  it("leaves visual mode", function()
+    h.open(mixed)
+    h.type("Vj<Plug>(tickbox-toggle)")
+    assert.are.equal("n", vim.api.nvim_get_mode().mode)
+  end)
+
+  it("takes every line touched by a charwise selection", function()
+    h.open({ "- [ ] one", "- [ ] two" })
+    h.type("wvj<Plug>(tickbox-toggle)")
+    assert.are.same({ "- [x] one", "- [x] two" }, lines())
+  end)
+
+  it("reverts the whole range with one undo", function()
+    h.open(mixed)
+    pause()
+    h.type("Vjjj<Plug>(tickbox-toggle)")
+    h.type("u")
+    assert.are.same(mixed, lines())
+  end)
+
+  it("flips the lines of a :Tickbox range", function()
+    h.open(mixed)
+    vim.cmd("1,4Tickbox toggle")
+    assert.are.same(mixed_toggled, lines())
+  end)
+
+  it("flips the visual marks with :'<,'>Tickbox", function()
+    h.open(mixed)
+    h.type("jV<Esc>")
+    vim.cmd("'<,'>Tickbox toggle")
+    assert.are.same(first_task_toggled, lines())
+  end)
+
+  it("skips fenced lines inside the range", function()
+    h.open({ "- [ ] one", "```", "- [ ] sample", "```", "- [ ] two" })
+    assert.is_true(tickbox.toggle_range(1, 5))
+    assert.are.same({ "- [x] one", "```", "- [ ] sample", "```", "- [x] two" }, lines())
+  end)
+
+  it("honours a fence that opens above the range", function()
+    h.open({ "```", "- [ ] sample" })
+    assert.is_false(tickbox.toggle_range(2, 2))
+  end)
+
+  it("ignores lines outside the buffer", function()
+    h.open({ "- [ ] one", "- [ ] two" })
+    assert.is_true(tickbox.toggle_range(0, 99))
+    assert.are.same({ "- [x] one", "- [x] two" }, lines())
+    assert.is_false(tickbox.toggle_range(20, 30))
+  end)
+
+  it("returns whether any line changed", function()
+    h.open({ "# heading", "- plain", "- [ ] one" })
+    assert.is_false(tickbox.toggle_range(1, 2))
+    assert.is_true(tickbox.toggle_range(1, 3))
+  end)
+
+  it("returns false in a nomodifiable buffer", function()
+    local buf = h.open({ "- [ ] one" })
+    vim.bo[buf].modifiable = false
+    assert.is_false(tickbox.toggle_range(1, 1))
+    vim.bo[buf].modifiable = true
   end)
 end)
 
