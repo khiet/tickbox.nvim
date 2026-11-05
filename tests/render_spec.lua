@@ -33,6 +33,16 @@ describe("rendering", function()
     assert.are.equal("- [ ] foo", h.screen_line(1))
   end)
 
+  it("attaches to buffers opened before the plugin started", function()
+    vim.o.eventignore = "FileType"
+    h.open({ "- [ ] foo" })
+    vim.o.eventignore = ""
+    assert.are.equal("- [ ] foo", h.screen_line(1))
+
+    require("tickbox").setup()
+    assert.are.equal(h.UNCHECKED .. "     foo", h.screen_line(1))
+  end)
+
   it("follows text changes and undo", function()
     local buf = h.open({ "plain" })
     assert.are.equal("plain", h.screen_line(1))
