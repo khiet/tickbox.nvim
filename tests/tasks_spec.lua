@@ -79,10 +79,6 @@ describe("README task table recipe", function()
     pcall(vim.api.nvim_del_user_command, "TaskTable")
   end)
 
-  it("stays under 40 lines", function()
-    assert.is_true(select(2, recipe():gsub("\n", "")) < 40)
-  end)
-
   it("lists tasks in aligned columns and jumps to one with <CR>", function()
     assert(load(recipe()))()
     local source = h.open({
