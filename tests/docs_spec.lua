@@ -41,6 +41,8 @@ local surface = {
   'require("tickbox").setup(',
   'require("tickbox").toggle()',
   'vim.fn.bufnr("#") ~= -1',
+  "[key:: value]",
+  "[priority:high]",
   "make test",
   "PLENARY_DIR",
 }
@@ -55,6 +57,7 @@ local api = {
     "`enable(buf?)`",
     "`disable(buf?)`",
     "`is_enabled(buf?)`",
+    "`tasks(buf?)`",
   },
   ["doc/tickbox.txt"] = {
     "*tickbox.setup()*",
@@ -65,6 +68,7 @@ local api = {
     "*tickbox.enable()*",
     "*tickbox.disable()*",
     "*tickbox.is_enabled()*",
+    "*tickbox.tasks()*",
   },
 }
 
@@ -113,6 +117,8 @@ describe("docs", function()
       "tickbox-states",
       "tickbox-progress",
       "TickboxProgress",
+      "tickbox.tasks()",
+      "tickbox-fields",
     }) do
       it("opens the doc for " .. tag, function()
         vim.cmd("help " .. vim.fn.escape(tag, " "))

@@ -237,6 +237,22 @@ is_enabled({buf})                                       *tickbox.is_enabled()*
     Whether the buffer renders: its filetype is configured and it is not
     disabled.
 
+tasks({buf})                                                 *tickbox.tasks()*
+    Returns a list of the buffer's tasks in line order, with their
+    |tickbox-fields|. Read-only, so it works on any loaded buffer whatever
+    its filetype. Fenced lines are skipped. An invalid buffer raises an
+    error, as |tickbox.disable()| does. Each entry has:
+
+    `lnum`     1-indexed line number
+    `state`    "unchecked", "in_progress", "checked" or "cancelled"
+    `text`     task text after the box, with field tokens removed and
+               whitespace trimmed
+    `fields`   table of key to value; empty when there are none
+    `indent`   display column of the marker
+    `parent`   index of the parent task in the returned list, or nil
+
+    The README has a recipe that lists these in a float.
+
 ==============================================================================
 HIGHLIGHT GROUPS                                          *tickbox-highlights*
 
@@ -290,6 +306,17 @@ are left alone. Fence matching is deliberately simpler than CommonMark:
 
 In insert and replace mode the cursor line shows its raw text, so the overlay
 never covers what you are editing.
+
+                                                              *tickbox-fields*
+A task can carry inline fields in the Dataview syntax `[key:: value]`, so the
+file stays readable by Obsidian Dataview and tasks.nvim: >markdown
+    - [ ] Ship the build [priority:: high] [repo:: FBA + FA]
+<
+- The key is letters, digits, `_` and `-`, kept as written. The value is
+  everything after `::` up to the next `]`, trimmed.
+- A field can sit anywhere in the text. A repeated key keeps the last value.
+- `[priority:high]` (one colon) and `[ :: x]` (no key) are plain text.
+- Fields are not highlighted or hidden; only |tickbox.tasks()| reads them.
 
 ==============================================================================
 CONTRIBUTING                                            *tickbox-contributing*

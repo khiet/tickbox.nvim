@@ -1,4 +1,5 @@
 local render = require("tickbox.render")
+local tasks = require("tickbox.tasks")
 local toggle = require("tickbox.toggle")
 
 local M = {}
@@ -45,5 +46,6 @@ M.toggle = toggle.toggle
 M.toggle_range = toggle.toggle_range
 M.cycle = toggle.cycle
 M.cycle_range = toggle.cycle_range
+M.tasks = tasks.list
 
 return M
