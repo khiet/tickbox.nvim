@@ -24,6 +24,15 @@ describe("rendering", function()
     assert.are.equal(h.CHECKED .. "     e", h.screen_line(5))
   end)
 
+  it("draws in-progress and cancelled tasks like unchecked ones", function()
+    h.open({ "- [/] a", "- [-] b", "1. [/] c", "    * [-] d", "```", "- [/] sample", "```" })
+    assert.are.equal(h.IN_PROGRESS .. "     a", h.screen_line(1))
+    assert.are.equal(h.CANCELLED .. "     b", h.screen_line(2))
+    assert.are.equal(h.IN_PROGRESS .. "      c", h.screen_line(3))
+    assert.are.equal("    " .. h.CANCELLED .. "     d", h.screen_line(4))
+    assert.are.equal("- [/] sample", h.screen_line(6))
+  end)
+
   it("leaves task-looking lines inside a fence raw", function()
     h.open({ "```", "- [ ] sample", "```", "- [ ] real" })
     assert.are.equal("- [ ] sample", h.screen_line(2))
@@ -134,6 +143,16 @@ describe("rendering", function()
       { default = true, link = "DiagnosticOk" },
       vim.api.nvim_get_hl(0, { name = "TickboxChecked" })
     )
+    assert.are.same(
+      { default = true, link = "DiagnosticWarn" },
+      vim.api.nvim_get_hl(0, { name = "TickboxInProgress" })
+    )
+    assert.are.same(
+      { default = true, link = "Comment" },
+      vim.api.nvim_get_hl(0, { name = "TickboxCancelled" })
+    )
+    -- No attributes, so done text looks unchanged until the user styles it.
+    assert.are.same({ default = true }, vim.api.nvim_get_hl(0, { name = "TickboxCheckedText" }))
   end)
 
   it("keeps a colorscheme override of the highlight groups", function()
@@ -144,23 +163,91 @@ describe("rendering", function()
   end)
 
   it("colours each glyph with its own group", function()
-    h.open({ "- [ ] foo", "- [x] bar" })
+    h.open({ "- [ ] a", "- [/] b", "- [x] c", "- [-] d" })
+    local groups = { "TickboxUnchecked", "TickboxInProgress", "TickboxChecked", "TickboxCancelled" }
+    local links = {}
+    for _, name in ipairs(groups) do
+      links[name] = vim.api.nvim_get_hl(0, { name = name }).link
+      vim.api.nvim_set_hl(0, name, { bold = true })
+    end
     local function glyph_attrs()
       vim.cmd("redraw!")
-      return vim.fn.screenattr(1, 1), vim.fn.screenattr(2, 1)
+      local attrs = {}
+      for row = 1, #groups do
+        attrs[row] = vim.fn.screenattr(row, 1)
+      end
+      return attrs
     end
-    vim.api.nvim_set_hl(0, "TickboxUnchecked", { bold = true })
-    vim.api.nvim_set_hl(0, "TickboxChecked", { italic = true })
-    local unchecked, checked = glyph_attrs()
 
     -- Restyling one group must change only that group's glyph.
-    vim.api.nvim_set_hl(0, "TickboxUnchecked", { underline = true })
-    local restyled_unchecked, same_checked = glyph_attrs()
+    local changed = {}
+    for row, name in ipairs(groups) do
+      local before = glyph_attrs()
+      vim.api.nvim_set_hl(0, name, { underline = true })
+      local after = glyph_attrs()
+      vim.api.nvim_set_hl(0, name, { bold = true })
+      changed[row] = {}
+      for other = 1, #groups do
+        changed[row][other] = before[other] ~= after[other]
+      end
+    end
 
-    vim.api.nvim_set_hl(0, "TickboxUnchecked", { link = "Comment" })
-    vim.api.nvim_set_hl(0, "TickboxChecked", { link = "DiagnosticOk" })
-    assert.are_not.equal(unchecked, restyled_unchecked)
-    assert.are.equal(checked, same_checked)
+    for _, name in ipairs(groups) do
+      vim.api.nvim_set_hl(0, name, { link = links[name] })
+    end
+    for row = 1, #groups do
+      for other = 1, #groups do
+        assert.are.equal(row == other, changed[row][other], groups[row] .. " on row " .. other)
+      end
+    end
+  end)
+
+  describe("done text", function()
+    local lines = { "- [ ] a", "- [/] b", "- [x] c", "- [X] d", "- [-] e", "plain" }
+
+    -- Screen attributes of each row's first text column, the marker cell and the
+    -- separating space, plus the last text column. 0 is no styling.
+    local function text_attrs()
+      vim.cmd("redraw!")
+      local attrs = {}
+      for row = 1, #lines do
+        attrs[row] = {
+          first = vim.fn.screenattr(row, 7),
+          last = vim.fn.screenattr(row, 9),
+          space = vim.fn.screenattr(row, 6),
+        }
+      end
+      return attrs
+    end
+
+    after_each(function()
+      vim.api.nvim_set_hl(0, "TickboxCheckedText", { default = true })
+    end)
+
+    it("is unstyled by default", function()
+      h.open({ "- [ ] abc", "- [x] abc", "plain abc" })
+      vim.cmd("redraw!")
+      for row = 1, 3 do
+        assert.are.equal(vim.fn.screenattr(3, 7), vim.fn.screenattr(row, 7), "row " .. row)
+      end
+    end)
+
+    it("uses TickboxCheckedText on checked lines only", function()
+      local text = {}
+      for i, line in ipairs(lines) do
+        text[i] = line .. "zz"
+      end
+      h.open(text)
+      vim.api.nvim_set_hl(0, "TickboxCheckedText", { strikethrough = true })
+      local attrs = text_attrs()
+      local plain = attrs[#lines].first
+      for row = 1, #lines do
+        local checked = row == 3 or row == 4
+        assert.are.equal(checked, attrs[row].first ~= plain, "row " .. row)
+        assert.are.equal(checked, attrs[row].last ~= plain, "row " .. row)
+        assert.are.equal(plain, attrs[row].space, "row " .. row)
+      end
+    end)
   end)
 
   it("does not cover task text when scrolled horizontally", function()

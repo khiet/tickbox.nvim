@@ -19,6 +19,9 @@ local fences = {}
 -- The line left raw for typing in insert or replace mode, { win, buf, row }. Nil when
 -- not typing or when the current buffer is not attached.
 local revealed
+-- Whether TickboxCheckedText has any styling, read once per window redraw. An extmark
+-- with an empty group still changes the screen attributes, so it is skipped then.
+local style_checked_text = false
 
 local function refresh(buf)
   attached[buf] = vim.tbl_contains(config.filetypes, vim.bo[buf].filetype) or nil
@@ -27,8 +30,19 @@ end
 local function define_highlights()
   -- default = true so a colorscheme or user definition wins.
   vim.api.nvim_set_hl(0, "TickboxUnchecked", { link = "Comment", default = true })
+  vim.api.nvim_set_hl(0, "TickboxInProgress", { link = "DiagnosticWarn", default = true })
   vim.api.nvim_set_hl(0, "TickboxChecked", { link = "DiagnosticOk", default = true })
+  vim.api.nvim_set_hl(0, "TickboxCancelled", { link = "Comment", default = true })
+  -- Empty so done text looks unchanged until the user defines it.
+  vim.api.nvim_set_hl(0, "TickboxCheckedText", { default = true })
 end
+
+local glyph_groups = {
+  unchecked = "TickboxUnchecked",
+  in_progress = "TickboxInProgress",
+  checked = "TickboxChecked",
+  cancelled = "TickboxCancelled",
+}
 
 -- A fence can open anywhere above the viewport, so this reads the whole buffer. The
 -- cache limits that to once per buffer change rather than once per redraw.
@@ -53,14 +67,13 @@ local function draw(buf, row)
     return
   end
 
-  local checked = task.state == "checked"
-  local icon = checked and config.icons.checked or config.icons.unchecked
+  local icon = config.icons[task.state]
   -- Pad to the prefix's width so the task text stays in its raw column.
   local padding = (task.prefix_end - task.prefix_start) - vim.fn.strdisplaywidth(icon)
   vim.api.nvim_buf_set_extmark(buf, ns, row, task.prefix_start, {
     ephemeral = true,
     virt_text = {
-      { icon, checked and "TickboxChecked" or "TickboxUnchecked" },
+      { icon, glyph_groups[task.state] },
       { string.rep(" ", math.max(padding, 0)) },
     },
     virt_text_pos = "overlay",
@@ -70,6 +83,16 @@ local function draw(buf, row)
     -- Lets cursorline and similar backgrounds show through the padding.
     hl_mode = "combine",
   })
+
+  -- Starts past the space that ends the prefix, so a strikethrough begins at the text.
+  local text_start = task.prefix_end + 1
+  if style_checked_text and task.state == "checked" and text_start < #line then
+    vim.api.nvim_buf_set_extmark(buf, ns, row, text_start, {
+      ephemeral = true,
+      end_col = #line,
+      hl_group = "TickboxCheckedText",
+    })
+  end
 end
 
 -- nvim__redraw is experimental, but nothing public repaints a single line and it is
@@ -170,6 +193,9 @@ function M.start(cfg)
 
   vim.api.nvim_set_decoration_provider(ns, {
     on_win = function(_, _, buf)
+      local hl = vim.api.nvim_get_hl(0, { name = "TickboxCheckedText" })
+      hl.default = nil
+      style_checked_text = next(hl) ~= nil
       return M.is_enabled(buf)
     end,
     on_line = function(_, win, buf, row)

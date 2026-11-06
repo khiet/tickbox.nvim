@@ -22,6 +22,10 @@ describe("parse.classify", function()
     { "\t- [x] foo", "checked", { 1, 6 }, { 4, 5 } },
     { "-   [ ] foo", "unchecked", { 0, 7 }, { 5, 6 } },
     { "- [ ] ", "unchecked", { 0, 5 }, { 3, 4 } },
+    { "- [/] foo", "in_progress", { 0, 5 }, { 3, 4 } },
+    { "- [-] foo", "cancelled", { 0, 5 }, { 3, 4 } },
+    { "1. [/] foo", "in_progress", { 0, 6 }, { 4, 5 } },
+    { "  * [-] foo", "cancelled", { 2, 7 }, { 5, 6 } },
   }
   for _, case in ipairs(accepted) do
     it("accepts '" .. case[1] .. "'", function()
@@ -43,7 +47,9 @@ describe("parse.classify", function()
     "- [] foo",
     "- [  ] foo",
     "- [y] foo",
-    "- [-] foo",
+    "- [_] foo",
+    "- [\\] foo",
+    "- [/]foo",
     "text - [ ] foo",
     "[ ] foo",
     "1 [ ] foo",

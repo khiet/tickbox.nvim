@@ -11,6 +11,8 @@ describe("toggle", function()
     { "- [ ] foo", "- [x] foo" },
     { "- [x] foo", "- [ ] foo" },
     { "- [X] foo", "- [ ] foo" },
+    { "- [/] foo", "- [x] foo" },
+    { "- [-] foo", "- [x] foo" },
     { "  1. [ ] *foo* [ ] [x] 󰄱", "  1. [x] *foo* [ ] [x] 󰄱" },
     { "\t+   [x] foo  ", "\t+   [ ] foo  " },
   }
@@ -242,5 +244,117 @@ describe(":Tickbox", function()
     local ok, err = pcall(vim.cmd, "Tickbox nope")
     assert.is_false(ok)
     assert.is_truthy(tostring(err):find("nope", 1, true))
+  end)
+end)
+
+describe("cycle", function()
+  -- before, after
+  local steps = {
+    { "- [ ] foo", "- [/] foo" },
+    { "- [/] foo", "- [x] foo" },
+    { "- [x] foo", "- [-] foo" },
+    { "- [X] foo", "- [-] foo" },
+    { "- [-] foo", "- [ ] foo" },
+    { "  1. [/] *foo* [ ] [x]", "  1. [x] *foo* [ ] [x]" },
+  }
+  for _, case in ipairs(steps) do
+    it("turns '" .. case[1] .. "' into '" .. case[2] .. "'", function()
+      h.open({ case[1] })
+      assert.is_true(tickbox.cycle())
+      assert.are.same({ case[2] }, lines())
+    end)
+  end
+
+  it("only touches the cursor line and keeps the cursor", function()
+    h.open({ "- [ ] one", "- [ ] two bar" })
+    vim.api.nvim_win_set_cursor(0, { 2, 10 })
+    assert.is_true(tickbox.cycle())
+    assert.are.same({ "- [ ] one", "- [/] two bar" }, lines())
+    assert.are.same({ 2, 10 }, vim.api.nvim_win_get_cursor(0))
+  end)
+
+  it("returns false on a non-task line", function()
+    h.open({ "- plain" })
+    assert.is_false(tickbox.cycle())
+    assert.are.same({ "- plain" }, lines())
+  end)
+
+  it("returns false on a fenced line", function()
+    local fenced = { "```", "- [ ] sample", "```" }
+    h.open(fenced)
+    vim.api.nvim_win_set_cursor(0, { 2, 0 })
+    assert.is_false(tickbox.cycle())
+    assert.are.same(fenced, lines())
+  end)
+
+  it("returns false in a filetype that is not configured", function()
+    h.open({ "- [ ] foo" }, "text")
+    assert.is_false(tickbox.cycle())
+    assert.is_false(tickbox.cycle_range(1, 1))
+    vim.cmd("Tickbox cycle")
+    h.type("<Plug>(tickbox-cycle)")
+    assert.are.same({ "- [ ] foo" }, lines())
+  end)
+
+  it("returns false in a nomodifiable buffer", function()
+    local buf = h.open({ "- [ ] foo" })
+    vim.bo[buf].modifiable = false
+    assert.is_false(tickbox.cycle())
+    assert.is_false(tickbox.cycle_range(1, 1))
+    vim.bo[buf].modifiable = true
+    assert.are.same({ "- [ ] foo" }, lines())
+  end)
+end)
+
+describe("<Plug>(tickbox-cycle)", function()
+  it("reverts one step per undo", function()
+    h.open({ "- [ ] foo" })
+    h.pause()
+    h.type("<Plug>(tickbox-cycle)")
+    h.pause()
+    h.type("<Plug>(tickbox-cycle)")
+    assert.are.same({ "- [x] foo" }, lines())
+    h.type("u")
+    assert.are.same({ "- [/] foo" }, lines())
+  end)
+
+  it("repeats with dot", function()
+    h.open({ "- [ ] one", "- [-] two" })
+    h.type("<Plug>(tickbox-cycle)")
+    h.type(".")
+    h.type("j.")
+    assert.are.same({ "- [x] one", "- [ ] two" }, lines())
+  end)
+end)
+
+describe("cycling a range", function()
+  local mixed = { "# heading", "- [ ] one", "- plain", "- [x] two", "- [-] three", "- [/] outside" }
+  local cycled = { "# heading", "- [/] one", "- plain", "- [-] two", "- [ ] three", "- [/] outside" }
+
+  it("advances every task with the visual mapping, as one undo step", function()
+    h.open(mixed)
+    h.pause()
+    h.type("Vjjjj<Plug>(tickbox-cycle)")
+    assert.are.same(cycled, lines())
+    assert.are.equal("n", vim.api.nvim_get_mode().mode)
+    h.type("u")
+    assert.are.same(mixed, lines())
+  end)
+
+  it("advances the visual marks with :'<,'>Tickbox cycle, as one undo step", function()
+    h.open(mixed)
+    h.type("Vjjjj<Esc>")
+    h.pause()
+    vim.cmd("'<,'>Tickbox cycle")
+    assert.are.same(cycled, lines())
+    vim.cmd("undo")
+    assert.are.same(mixed, lines())
+  end)
+
+  it("skips fenced lines and returns whether any line changed", function()
+    h.open({ "# heading", "```", "- [ ] sample", "```", "- [ ] two" })
+    assert.is_false(tickbox.cycle_range(1, 4))
+    assert.is_true(tickbox.cycle_range(1, 5))
+    assert.are.same({ "# heading", "```", "- [ ] sample", "```", "- [/] two" }, lines())
   end)
 end)

@@ -26,6 +26,10 @@ describe("continue", function()
     { { "  * [ ] a" }, "A<Newline>b<Esc>", { "  * [ ] a", "  * [ ] b" } },
     { { "\t+ [ ] a" }, "A<Newline>b<Esc>", { "\t+ [ ] a", "\t+ [ ] b" } },
     { { "- [ ] ab" }, "$i<Newline><Esc>", { "- [ ] a", "- [ ] b" } },
+    { { "- [/] a" }, "A<Newline>b<Esc>", { "- [/] a", "- [ ] b" } },
+    { { "- [-] a" }, "A<Newline>b<Esc>", { "- [-] a", "- [ ] b" } },
+    { { "- [/] a" }, "<Below>b<Esc>", { "- [/] a", "- [ ] b" } },
+    { { "- [-] a" }, "<Above>b<Esc>", { "- [ ] b", "- [-] a" } },
   }
   for _, case in ipairs(continues) do
     it("turns '" .. case[1][1] .. "' with " .. case[2] .. " into the next task", function()
