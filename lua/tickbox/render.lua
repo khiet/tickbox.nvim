@@ -2,6 +2,7 @@
 -- only for the redraw that placed them: there is nothing to clear or keep in sync,
 -- and text changes, undo, :e, folds and scrolling are covered by redraws alone.
 local parse = require("tickbox.parse")
+local tree = require("tickbox.tree")
 
 local M = {}
 
@@ -14,8 +15,9 @@ local attached = {}
 -- Buffers turned off with `disable`. Separate from `attached` so the choice survives the
 -- FileType event a :e reload fires, and lasts until `enable` or the buffer is wiped.
 local disabled = {}
--- Per buffer: { tick = changedtick, rows = parse.fenced result for that tick }.
-local fences = {}
+-- Buffers with an nvim_buf_attach listener, which repaints when progress counts change.
+-- Each holds `counts`, the tree.counts table the listener last saw.
+local watched = {}
 -- The line left raw for typing in insert or replace mode, { win, buf, row }. Nil when
 -- not typing or when the current buffer is not attached.
 local revealed
@@ -23,8 +25,37 @@ local revealed
 -- with an empty group still changes the screen attributes, so it is skipped then.
 local style_checked_text = false
 
+-- An edit repaints only the lines it touched, but a count sits on a parent or heading
+-- line that may be elsewhere. So any change to the counts repaints the buffer's windows.
+local function watch(buf)
+  if watched[buf] or not vim.api.nvim_buf_is_loaded(buf) then
+    return
+  end
+  local watch_state = {}
+  watched[buf] = watch_state
+  vim.api.nvim_buf_attach(buf, false, {
+    on_lines = function()
+      if not (config.progress and attached[buf]) then
+        watched[buf] = nil
+        return true
+      end
+      local counts = tree.get(buf).counts
+      if not vim.deep_equal(counts, watch_state.counts) then
+        watch_state.counts = counts
+        vim.api.nvim__redraw({ buf = buf, valid = false })
+      end
+    end,
+    on_detach = function()
+      watched[buf] = nil
+    end,
+  })
+end
+
 local function refresh(buf)
   attached[buf] = vim.tbl_contains(config.filetypes, vim.bo[buf].filetype) or nil
+  if attached[buf] and config.progress then
+    watch(buf)
+  end
 end
 
 local function define_highlights()
@@ -35,6 +66,7 @@ local function define_highlights()
   vim.api.nvim_set_hl(0, "TickboxCancelled", { link = "Comment", default = true })
   -- Empty so done text looks unchanged until the user defines it.
   vim.api.nvim_set_hl(0, "TickboxCheckedText", { default = true })
+  vim.api.nvim_set_hl(0, "TickboxProgress", { link = "Comment", default = true })
 end
 
 local glyph_groups = {
@@ -44,21 +76,22 @@ local glyph_groups = {
   cancelled = "TickboxCancelled",
 }
 
--- A fence can open anywhere above the viewport, so this reads the whole buffer. The
--- cache limits that to once per buffer change rather than once per redraw.
-local function fenced_rows(buf)
-  local tick = vim.api.nvim_buf_get_changedtick(buf)
-  local cached = fences[buf]
-  if not cached or cached.tick ~= tick then
-    local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-    cached = { tick = tick, rows = parse.fenced(lines) }
-    fences[buf] = cached
+local function draw_progress(buf, row)
+  local count = tree.get(buf).counts[row + 1]
+  if count then
+    vim.api.nvim_buf_set_extmark(buf, ns, row, 0, {
+      ephemeral = true,
+      virt_text = { { ("%d/%d"):format(count.done, count.total), "TickboxProgress" } },
+      virt_text_pos = "eol",
+      hl_mode = "combine",
+    })
   end
-  return cached.rows
 end
 
 local function draw(buf, row)
-  if fenced_rows(buf)[row + 1] then
+  -- A fence can open anywhere above the viewport, so this needs the whole buffer; the
+  -- tree caches that per buffer change rather than per redraw.
+  if tree.get(buf).fenced[row + 1] then
     return
   end
   local line = vim.api.nvim_buf_get_lines(buf, row, row + 1, false)[1]
@@ -157,6 +190,11 @@ function M.disable(buf)
   set_disabled(buf, true)
 end
 
+-- The options from the latest `start`.
+function M.options()
+  return config
+end
+
 -- Safe to call repeatedly; the latest config replaces the previous one.
 function M.start(cfg)
   config = cfg
@@ -174,7 +212,7 @@ function M.start(cfg)
     callback = function(args)
       attached[args.buf] = nil
       disabled[args.buf] = nil
-      fences[args.buf] = nil
+      tree.forget(args.buf)
     end,
   })
 
@@ -199,6 +237,10 @@ function M.start(cfg)
       return M.is_enabled(buf)
     end,
     on_line = function(_, win, buf, row)
+      -- Eol text covers nothing, so counts stay on the line being typed.
+      if config.progress then
+        draw_progress(buf, row)
+      end
       if not (revealed and revealed.win == win and revealed.row == row) then
         draw(buf, row)
       end

@@ -153,6 +153,10 @@ describe("rendering", function()
     )
     -- No attributes, so done text looks unchanged until the user styles it.
     assert.are.same({ default = true }, vim.api.nvim_get_hl(0, { name = "TickboxCheckedText" }))
+    assert.are.same(
+      { default = true, link = "Comment" },
+      vim.api.nvim_get_hl(0, { name = "TickboxProgress" })
+    )
   end)
 
   it("keeps a colorscheme override of the highlight groups", function()

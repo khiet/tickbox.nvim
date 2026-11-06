@@ -7,6 +7,7 @@ Render and toggle GitHub-style task lists in markdown.
 - `- [ ] task` renders as a hollow box and `- [x] task` as a ticked box, with `[/]` for in progress and `[-]` for cancelled. Nothing else in the buffer changes.
 - One mapping toggles the task under the cursor, or every task in a visual selection, and another cycles it through the four states.
 - Optional mappings for `<CR>`, `o` and `O` start the next task as `- [ ] `.
+- Optional `done/total` counts on parent tasks and headings, and optional auto-checking of a parent once its children are done.
 - No treesitter, no `conceallevel`, no default keymaps.
 
 ## Requirements
@@ -56,8 +57,13 @@ require("tickbox").setup({
     checked = "󰱒",
     cancelled = "󰅗",
   },
+  progress = false,                            -- done/total on parents and headings
+  auto_check_parent = false,                   -- keep parents in step with children
 })
 ```
+
+- `progress`: every parent task and heading with at least one counted task shows `done/total` at the end of its line, in `TickboxProgress`. See [Progress and parents](#progress-and-parents).
+- `auto_check_parent`: after a toggle or cycle, an ancestor whose counted descendants are all checked becomes `[x]`, and a checked ancestor with a descendant that is not becomes `[ ]`.
 
 Each call starts from the defaults rather than the previous call's options. Below Neovim 0.10 it raises an error naming the minimum version. Without a Nerd Font, try `icons = { unchecked = "☐", in_progress = "◐", checked = "☑", cancelled = "☒" }`.
 
@@ -73,6 +79,14 @@ Each call starts from the defaults rather than the previous call's options. Belo
 | `[-]` | cancelled | `cancelled` | `TickboxCancelled` |
 
 Toggling is a done/not-done switch: a checked task becomes `[ ]` and every other task becomes `[x]`. Cycling walks `[ ]`, `[/]`, `[x]`, `[-]` and back to `[ ]`; `[X]` cycles as checked.
+
+### Progress and parents
+
+- A task's descendants are the task lines after it with a greater indentation, up to the first non-blank line indented the same or less. Blank lines and deeper non-task lines do not end them. A tab counts to the next multiple of four columns.
+- A heading (`#` to `######`) holds every task until the next heading of the same or a higher level, so `## A` includes the tasks under a `### B` inside it.
+- Counts cover all descendants, not only direct children. `done` is checked tasks and `total` is unchecked, in-progress and checked ones; cancelled tasks are left out, and a total of 0 shows nothing.
+- With `auto_check_parent`, the change walks up through every ancestor. It never changes a task's descendants, never touches a cancelled ancestor, and never uses headings. A toggle or cycle and the parents it updates are one undo step, and a range updates parents once after all its edits.
+- Fenced lines are ignored, and counts follow `:Tickbox disable` and `enable` like the icons. They stay visible on the line being typed.
 
 ### Commands
 
@@ -169,6 +183,7 @@ vim.api.nvim_create_autocmd("FileType", {
 | `TickboxChecked` | `DiagnosticOk` |
 | `TickboxCancelled` | `Comment` |
 | `TickboxCheckedText` | None |
+| `TickboxProgress` | `Comment` |
 
 All are defined with `default = true`, so a colorscheme or your own definition wins.
 

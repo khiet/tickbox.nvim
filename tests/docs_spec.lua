@@ -31,6 +31,11 @@ local surface = {
   "TickboxInProgress",
   "TickboxCancelled",
   "TickboxCheckedText",
+  "TickboxProgress",
+  "progress = false",
+  "auto_check_parent = false",
+  "same or a higher level",
+  "greater indentation",
   "DiagnosticOk",
   "DiagnosticWarn",
   'require("tickbox").setup(',
@@ -106,6 +111,8 @@ describe("docs", function()
       "TickboxCancelled",
       "TickboxCheckedText",
       "tickbox-states",
+      "tickbox-progress",
+      "TickboxProgress",
     }) do
       it("opens the doc for " .. tag, function()
         vim.cmd("help " .. vim.fn.escape(tag, " "))
