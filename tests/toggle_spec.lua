@@ -1,12 +1,6 @@
 local h = require("tests.helpers")
 local tickbox = require("tickbox")
 
--- Typed keys close the undo block while nvim waits for input. Fed keys never wait, so
--- this does it by hand, as a pause between keystrokes would.
-local function pause()
-  vim.bo.undolevels = vim.bo.undolevels
-end
-
 local function lines()
   return vim.api.nvim_buf_get_lines(0, 0, -1, false)
 end
@@ -102,9 +96,9 @@ end)
 describe("<Plug>(tickbox-toggle)", function()
   it("reverts one toggle per undo", function()
     h.open({ "- [ ] foo" })
-    pause()
+    h.pause()
     h.type("<Plug>(tickbox-toggle)")
-    pause()
+    h.pause()
     h.type("<Plug>(tickbox-toggle)")
     assert.are.same({ "- [ ] foo" }, lines())
     h.type("u")
@@ -185,7 +179,7 @@ describe("toggling a range", function()
 
   it("reverts the whole range with one undo", function()
     h.open(mixed)
-    pause()
+    h.pause()
     h.type("Vjjj<Plug>(tickbox-toggle)")
     h.type("u")
     assert.are.same(mixed, lines())

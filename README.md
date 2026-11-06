@@ -6,6 +6,7 @@ Render and toggle GitHub-style task lists in markdown.
 
 - `- [ ] task` renders as a hollow box and `- [x] task` as a ticked box. Nothing else in the buffer changes.
 - One mapping toggles the task under the cursor, or every task in a visual selection.
+- Optional mappings for `<CR>`, `o` and `O` start the next task as `- [ ] `.
 - No treesitter, no `conceallevel`, no default keymaps.
 
 ## Requirements
@@ -73,6 +74,40 @@ The plugin ships no default keymap. `<Plug>(tickbox-toggle)` works in normal mod
 
 ```lua
 vim.keymap.set({ "n", "x" }, "<leader>t", "<Plug>(tickbox-toggle)")
+```
+
+### Continuing a list
+
+Three more `<Plug>` mappings, also unbound, start a new unchecked task with the indentation and marker of the task line under the cursor. Off a task line they act as plain keys:
+
+| Mapping | Mode | On a task line |
+| --- | --- | --- |
+| `<Plug>(tickbox-newline)` | insert | Like `<CR>`; on an empty task it clears the line instead, ending the list |
+| `<Plug>(tickbox-open-below)` | normal | Like `o` |
+| `<Plug>(tickbox-open-above)` | normal | Like `O` |
+
+Ordered tasks such as `1. [ ]` are not continued. `u` undoes the new task together with the text typed after it, but `.` does not repeat the task prefix. The new line ignores `formatoptions`, so a plugin that continues lists itself, like vim-markdown, does not add a second marker. Bind them per buffer, since `<CR>`, `o` and `O` are too common to map everywhere:
+
+```lua
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "markdown",
+  callback = function(args)
+    vim.keymap.set("i", "<CR>", "<Plug>(tickbox-newline)", { buffer = args.buf })
+    vim.keymap.set("n", "o", "<Plug>(tickbox-open-below)", { buffer = args.buf })
+    vim.keymap.set("n", "O", "<Plug>(tickbox-open-above)", { buffer = args.buf })
+  end,
+})
+```
+
+A buffer-local `<CR>` hides a completion plugin's global one. If yours confirms with `<CR>`, check its menu first. For nvim-cmp, use this in place of the `<CR>` line in the callback above:
+
+```lua
+vim.keymap.set("i", "<CR>", function()
+  if require("cmp").visible() then
+    return "<Cmd>lua require('cmp').confirm()<CR>"
+  end
+  return "<Plug>(tickbox-newline)"
+end, { buffer = args.buf, expr = true, remap = true })
 ```
 
 ### Fallback recipe

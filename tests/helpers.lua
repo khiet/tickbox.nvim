@@ -35,4 +35,10 @@ function M.type(keys, probe)
   vim.api.nvim_feedkeys(vim.keycode(expanded), "mx", false)
 end
 
+-- Typed keys close the undo block while nvim waits for input. Fed keys never wait, so
+-- this does it by hand, as a pause between keystrokes would.
+function M.pause()
+  vim.bo.undolevels = vim.bo.undolevels
+end
+
 return M
