@@ -218,10 +218,15 @@ TickboxCancelled    Cancelled glyph. Links to `Comment` by default.
                                                           *TickboxCheckedText*
 TickboxCheckedText  Text of checked tasks, after the box. Has no attributes
                     by default, so checked lines look unchanged until you
-                    define it. To strike done tasks through: >lua
+                    define it. To strike done tasks through and dim them
+                    like comments: >lua
+    local comment = vim.api.nvim_get_hl(0, { name = "Comment", link = false })
     vim.api.nvim_set_hl(0, "TickboxCheckedText",
-      { strikethrough = true, link = "Comment" })
+      vim.tbl_extend("force", comment, { strikethrough = true }))
 <
+                    A `link` overrides every other attribute, so
+                    `{ strikethrough = true, link = "Comment" }` would not
+                    strike anything through.
 All are defined with `default = true`, so a colorscheme or your own
 definition wins.
 

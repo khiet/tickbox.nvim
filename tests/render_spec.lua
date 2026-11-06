@@ -24,7 +24,7 @@ describe("rendering", function()
     assert.are.equal(h.CHECKED .. "     e", h.screen_line(5))
   end)
 
-  it("draws in-progress and cancelled tasks like unchecked ones", function()
+  it("draws in-progress and cancelled glyphs in the box's column", function()
     h.open({ "- [/] a", "- [-] b", "1. [/] c", "    * [-] d", "```", "- [/] sample", "```" })
     assert.are.equal(h.IN_PROGRESS .. "     a", h.screen_line(1))
     assert.are.equal(h.CANCELLED .. "     b", h.screen_line(2))

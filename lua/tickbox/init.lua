@@ -7,9 +7,9 @@ local defaults = {
   filetypes = { "markdown" },
   icons = {
     unchecked = "󰄱",
-    in_progress = "\u{F0856}",
+    in_progress = "󰡖",
     checked = "󰱒",
-    cancelled = "\u{F0157}",
+    cancelled = "󰅗",
   },
 }
 

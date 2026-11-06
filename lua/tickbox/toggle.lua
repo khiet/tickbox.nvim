@@ -33,10 +33,6 @@ local function rewrite_range(next_interior, first, last)
   return changed
 end
 
-local function cursor_line()
-  return vim.api.nvim_win_get_cursor(0)[1]
-end
-
 -- Marks checked tasks unchecked and every other task checked. See `rewrite_range` for
 -- the range and the result.
 function M.toggle_range(first, last)
@@ -52,12 +48,12 @@ end
 -- Acts on the cursor line, with the same results as the range form, so a mapping can
 -- fall through to another action on false.
 function M.toggle()
-  local lnum = cursor_line()
+  local lnum = vim.api.nvim_win_get_cursor(0)[1]
   return M.toggle_range(lnum, lnum)
 end
 
 function M.cycle()
-  local lnum = cursor_line()
+  local lnum = vim.api.nvim_win_get_cursor(0)[1]
   return M.cycle_range(lnum, lnum)
 end
 

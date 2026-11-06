@@ -172,11 +172,14 @@ vim.api.nvim_create_autocmd("FileType", {
 
 All are defined with `default = true`, so a colorscheme or your own definition wins.
 
-`TickboxCheckedText` styles the text of checked tasks, after the box. It has no attributes until you define it, so checked lines look unchanged by default. To strike done tasks through:
+`TickboxCheckedText` styles the text of checked tasks, after the box. It has no attributes until you define it, so checked lines look unchanged by default. To strike done tasks through and dim them like comments:
 
 ```lua
-vim.api.nvim_set_hl(0, "TickboxCheckedText", { strikethrough = true, link = "Comment" })
+local comment = vim.api.nvim_get_hl(0, { name = "Comment", link = false })
+vim.api.nvim_set_hl(0, "TickboxCheckedText", vim.tbl_extend("force", comment, { strikethrough = true }))
 ```
+
+A `link` overrides every other attribute, so `{ strikethrough = true, link = "Comment" }` would not strike anything through.
 
 ## Task syntax
 
