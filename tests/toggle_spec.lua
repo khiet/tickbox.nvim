@@ -240,6 +240,13 @@ describe(":Tickbox", function()
     assert.are.same({ "- [ ] one", "- [x] two" }, lines())
   end)
 
+  it("cycles the cursor line", function()
+    h.open({ "- [ ] one", "- [ ] two" })
+    vim.api.nvim_win_set_cursor(0, { 2, 0 })
+    vim.cmd("Tickbox cycle")
+    assert.are.same({ "- [ ] one", "- [/] two" }, lines())
+  end)
+
   it("rejects an unknown subcommand", function()
     local ok, err = pcall(vim.cmd, "Tickbox nope")
     assert.is_false(ok)

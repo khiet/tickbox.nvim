@@ -205,8 +205,8 @@ describe("rendering", function()
   describe("done text", function()
     local lines = { "- [ ] a", "- [/] b", "- [x] c", "- [X] d", "- [-] e", "plain" }
 
-    -- Screen attributes of each row's first text column, the marker cell and the
-    -- separating space, plus the last text column. 0 is no styling.
+    -- Screen attributes of each row's first and last text columns and of the space
+    -- between the box and the text.
     local function text_attrs()
       vim.cmd("redraw!")
       local attrs = {}
