@@ -30,6 +30,21 @@ function M.classify(line)
   }
 end
 
+-- A Dataview inline field, `[key:: value]`, with the whitespace around it. Replacing
+-- the whole match with one space keeps words apart without doubling a space.
+local field_token = "%s*%[([%w_%-]+)::%s*([^%]]-)%s*%]%s*"
+
+-- Splits task text into the text without its inline fields, trimmed, and a table of
+-- key to value. A repeated key keeps its last value.
+function M.fields(text)
+  local fields = {}
+  local stripped = text:gsub(field_token, function(key, value)
+    fields[key] = value
+    return " "
+  end)
+  return stripped:match("^%s*(.-)%s*$"), fields
+end
+
 -- Reads a run of three or more fence characters, which may follow a list marker. Any
 -- indentation counts, unlike CommonMark's limit of three spaces, because fences nested in
 -- list items sit deeper. `indent` is the run's column, so a closer can be compared with it.

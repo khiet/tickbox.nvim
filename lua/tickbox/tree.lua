@@ -7,11 +7,13 @@ local M = {}
 -- Per buffer: { tick = changedtick, tree = build result for that tick }.
 local cache = {}
 
--- CommonMark tab stops are every four columns, independent of 'tabstop'.
-local function indent_width(line)
+-- The column after the line's leading whitespace, with tab stops every `tabstop`
+-- columns. Defaults to CommonMark's four, which nesting uses whatever 'tabstop' is.
+function M.indent_width(line, tabstop)
+  tabstop = tabstop or 4
   local width = 0
   for char in line:match("^[ \t]*"):gmatch(".") do
-    width = char == "\t" and width - width % 4 + 4 or width + 1
+    width = char == "\t" and width - width % tabstop + tabstop or width + 1
   end
   return width
 end
@@ -51,7 +53,7 @@ function M.build(lines)
   for lnum, line in ipairs(lines) do
     if not fenced[lnum] and line:find("%S") then
       local level = heading_level(line)
-      local width = indent_width(line)
+      local width = M.indent_width(line)
       while #open_tasks > 0 and open_tasks[#open_tasks].indent >= width do
         table.remove(open_tasks)
       end
