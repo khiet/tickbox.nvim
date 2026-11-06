@@ -86,7 +86,7 @@ Three more `<Plug>` mappings, also unbound, start a new unchecked task with the 
 | `<Plug>(tickbox-open-below)` | normal | Like `o` |
 | `<Plug>(tickbox-open-above)` | normal | Like `O` |
 
-Ordered tasks such as `1. [ ]` are not continued. The new line ignores `formatoptions`, so a plugin that continues lists itself, like vim-markdown, does not add a second marker. Bind them per buffer, since `<CR>`, `o` and `O` are too common to map everywhere:
+Ordered tasks such as `1. [ ]` are not continued. `u` undoes the new task together with the text typed after it, but `.` does not repeat the task prefix. The new line ignores `formatoptions`, so a plugin that continues lists itself, like vim-markdown, does not add a second marker. Bind them per buffer, since `<CR>`, `o` and `O` are too common to map everywhere:
 
 ```lua
 vim.api.nvim_create_autocmd("FileType", {

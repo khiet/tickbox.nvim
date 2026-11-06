@@ -110,10 +110,11 @@ they act as plain keys.
 <Plug>(tickbox-open-below)    Normal mode. Like |o|.
 <Plug>(tickbox-open-above)    Normal mode. Like |O|.
 
-Ordered tasks such as `1. [ ]` are not continued. The new line ignores
-'formatoptions', so a plugin that continues lists itself, like vim-markdown,
-does not add a second marker. Bind them per buffer, since <CR>, |o| and |O|
-are too common to map everywhere: >lua
+Ordered tasks such as `1. [ ]` are not continued. |u| undoes the new task
+together with the text typed after it, but |.| does not repeat the task
+prefix. The new line ignores 'formatoptions', so a plugin that continues lists
+itself, like vim-markdown, does not add a second marker. Bind them per
+buffer, since <CR>, |o| and |O| are too common to map everywhere: >lua
     vim.api.nvim_create_autocmd("FileType", {
       pattern = "markdown",
       callback = function(args)
