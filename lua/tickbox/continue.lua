@@ -1,7 +1,7 @@
--- Continues a task list onto a new line. Every entry point returns keys for an expr
--- mapping: the plain key off a task line, or a <Cmd> that edits through the API on one.
--- Editing through the API rather than feeding <CR> or `o` keeps 'formatoptions' and
--- 'comments' out of it, so a plugin that continues lists itself cannot double the marker.
+-- Continues a task list onto a new line. `newline` and `open` return keys for an expr
+-- mapping: the plain key off a task line, or a <Cmd> that writes the new line through
+-- the API on one. Writing the whole line replaces any leader 'formatoptions' inserted, so
+-- a plugin that continues lists itself cannot double the marker.
 local parse = require("tickbox.parse")
 local render = require("tickbox.render")
 
@@ -35,7 +35,7 @@ end
 function M._newline()
   local row, col = unpack(vim.api.nvim_win_get_cursor(0))
   local line, task = cursor_task()
-  -- An empty task ends the list, as in GitHub's editor, rather than piling up more.
+  -- An empty task ends the list rather than piling up more.
   if line:sub(task.prefix_end + 1):match("^%s*$") then
     vim.api.nvim_set_current_line("")
     vim.api.nvim_win_set_cursor(0, { row, 0 })
@@ -56,7 +56,7 @@ end
 
 function M.newline()
   local line, task = cursor_task()
-  -- Before the task text, <CR> pushes the whole task down, prefix and all.
+  -- Splitting before the task text would leave a second prefix in front of the first.
   if not line or vim.api.nvim_win_get_cursor(0)[2] <= task.prefix_end then
     return "<CR>"
   end
