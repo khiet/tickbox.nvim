@@ -11,6 +11,11 @@ local defaults = {
     checked = "󰱒",
     cancelled = "󰅗",
   },
+  -- Draws done/total at the end of parent task and heading lines.
+  progress = false,
+  -- After a toggle or cycle, checks an ancestor whose counted descendants are all
+  -- checked and unchecks a checked one whose are not.
+  auto_check_parent = false,
 }
 
 local started = false

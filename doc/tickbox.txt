@@ -7,6 +7,7 @@ CONTENTS                                                             *tickbox*
   Install ................................. |tickbox-install|
   Options ................................. |tickbox-options|
   Task states ............................. |tickbox-states|
+  Progress and parents .................... |tickbox-progress|
   Commands ................................ |tickbox-commands|
   Mapping ................................. |tickbox-mapping|
   Continuing a list ....................... |tickbox-continue|
@@ -55,11 +56,20 @@ Defaults: >lua
         checked = "󰱒",
         cancelled = "󰅗",
       },
+      progress = false,
+      auto_check_parent = false,
     })
 <
     filetypes   Filetypes to render. Replaces the default list.
     icons       Glyphs for each state, see |tickbox-states|. Any of them may
                 be left out. Without a Nerd Font, try "☐", "◐", "☑" and "☒".
+    progress    Show `done/total` at the end of every parent task and heading
+                line with at least one counted task, in |TickboxProgress|.
+                See |tickbox-progress|.
+    auto_check_parent
+                After a toggle or cycle, check an ancestor whose counted
+                descendants are all checked, and uncheck a checked ancestor
+                with a descendant that is not. See |tickbox-progress|.
 
 Each call starts from the defaults rather than the previous call's options.
 Below Neovim 0.10 it raises an error naming the minimum version.
@@ -76,6 +86,33 @@ TASK STATES                                                   *tickbox-states*
 Toggling is a done/not-done switch: a checked task becomes `[ ]` and every
 other task becomes `[x]`. Cycling walks `[ ]`, `[/]`, `[x]`, `[-]` and back to
 `[ ]`; `[X]` cycles as checked.
+
+==============================================================================
+PROGRESS AND PARENTS                                        *tickbox-progress*
+
+Both are off by default; see the `progress` and `auto_check_parent` options.
+
+A task's descendants are the task lines after it with a greater indentation,
+up to the first non-blank line indented the same or less. Blank lines and
+deeper non-task lines do not end them. A tab counts to the next multiple of
+four columns.
+
+A heading (`#` to `######`) holds every task until the next heading of the
+same or a higher level, so `## A` includes the tasks under a `### B` inside
+it. A heading also ends every task's descendants.
+
+Counts cover all descendants, not only direct children. `done` is checked
+tasks and `total` is unchecked, in-progress and checked ones; cancelled tasks
+are left out, and a total of 0 shows nothing. Counts follow |:Tickbox|
+`disable` and `enable` like the icons, and stay visible on the line being
+typed.
+
+With `auto_check_parent`, the change walks up through every ancestor. It never
+changes a task's descendants, never touches a cancelled ancestor, and never
+uses headings. A toggle or cycle and the parents it updates are one undo step,
+and a range updates parents once after all its edits.
+
+Fenced lines are ignored, as everywhere else.
 
 ==============================================================================
 COMMANDS                                         *tickbox-commands* *:Tickbox*
@@ -227,6 +264,11 @@ TickboxCheckedText  Text of checked tasks, after the box. Has no attributes
                     A `link` overrides every other attribute, so
                     `{ strikethrough = true, link = "Comment" }` would not
                     strike anything through.
+
+                                                             *TickboxProgress*
+TickboxProgress     `done/total` counts, see |tickbox-progress|. Links to
+                    `Comment` by default.
+
 All are defined with `default = true`, so a colorscheme or your own
 definition wins.
 
