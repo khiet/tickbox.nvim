@@ -121,6 +121,11 @@ describe("parse.fields", function()
     assert.are.same({ due = "friday" }, fields)
   end)
 
+  it("keeps one space where a field sat against a word", function()
+    assert.are.equal("ship the build", (parse.fields("ship [due:: friday]the build")))
+    assert.are.equal("ship the build", (parse.fields("ship [due:: friday]  the build")))
+  end)
+
   it("removes a leading field", function()
     assert.are.equal("ship it", (parse.fields("[a:: 1] ship it")))
   end)

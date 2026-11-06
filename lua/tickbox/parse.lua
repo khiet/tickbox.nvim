@@ -30,9 +30,9 @@ function M.classify(line)
   }
 end
 
--- A Dataview inline field, `[key:: value]`, with any whitespace before it so removing
--- the token from the middle of a text leaves a single space.
-local field_token = "%s*%[([%w_%-]+)::%s*([^%]]-)%s*%]"
+-- A Dataview inline field, `[key:: value]`, with the whitespace around it. Replacing
+-- the whole match with one space keeps words apart without doubling a space.
+local field_token = "%s*%[([%w_%-]+)::%s*([^%]]-)%s*%]%s*"
 
 -- Splits task text into the text without its inline fields, trimmed, and a table of
 -- key to value. A repeated key keeps its last value.
@@ -40,7 +40,7 @@ function M.fields(text)
   local fields = {}
   local stripped = text:gsub(field_token, function(key, value)
     fields[key] = value
-    return ""
+    return " "
   end)
   return stripped:match("^%s*(.-)%s*$"), fields
 end

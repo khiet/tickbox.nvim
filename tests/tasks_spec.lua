@@ -34,6 +34,15 @@ describe("tasks()", function()
     assert.are.same({ { nil, 0 }, { 1, 2 }, { 2, 4 }, { 1, 2 }, { nil, 0 } }, got)
   end)
 
+  it("reports the marker's display column under the buffer's 'tabstop'", function()
+    local buf = h.open({ "\t- [ ] tabbed", "  \t- [ ] mixed" })
+    vim.bo[buf].tabstop = 8
+    local got = vim.tbl_map(function(task)
+      return task.indent
+    end, tickbox.tasks())
+    assert.are.same({ 8, 8 }, got)
+  end)
+
   it("skips fenced task lines", function()
     h.open({ "```", "- [ ] sample", "```", "- [ ] real" })
     local tasks = tickbox.tasks()

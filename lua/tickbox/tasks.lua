@@ -1,5 +1,6 @@
 -- The read-only task listing behind `require("tickbox").tasks()`.
 local parse = require("tickbox.parse")
+local render = require("tickbox.render")
 local tree = require("tickbox.tree")
 
 local M = {}
@@ -7,28 +8,28 @@ local M = {}
 -- Returns the buffer's unfenced tasks in line order. Reads any loaded buffer whatever its
 -- filetype. The result is a fresh table the caller may modify.
 function M.list(buf)
-  buf = (buf == nil or buf == 0) and vim.api.nvim_get_current_buf() or buf
-  if not vim.api.nvim_buf_is_valid(buf) then
-    error("Tickbox: invalid buffer: " .. tostring(buf), 0)
-  end
+  buf = render.resolve_valid(buf)
   local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-  local by_lnum = tree.get(buf).tasks
+  -- Built directly rather than through tree.get, whose cache is only cleared for
+  -- buffers the renderer attached.
+  local by_lnum = tree.build(lines).tasks
+  local tabstop = vim.bo[buf].tabstop
 
-  local list, index = {}, {}
-  for lnum = 1, #lines do
+  local list, position_by_lnum = {}, {}
+  for lnum, line in ipairs(lines) do
     local task = by_lnum[lnum]
     if task then
-      local text, fields = parse.fields(lines[lnum]:sub(task.prefix_end + 1))
+      local text, fields = parse.fields(line:sub(task.prefix_end + 1))
       table.insert(list, {
         lnum = lnum,
         state = task.state,
         text = text,
         fields = fields,
-        indent = task.indent,
-        -- A parent always precedes its children, so its index is already known.
-        parent = task.parent and index[task.parent],
+        indent = tree.indent_width(line, tabstop),
+        -- A parent always precedes its children, so its position is already known.
+        parent = task.parent and position_by_lnum[task.parent],
       })
-      index[lnum] = #list
+      position_by_lnum[lnum] = #list
     end
   end
   return list

@@ -235,7 +235,6 @@ vim.api.nvim_create_user_command("TaskTable", function()
 end, {})
 ```
 
-
 ## Highlights
 
 | Group | Default link |

@@ -161,6 +161,16 @@ local function resolve(buf)
   return (buf == nil or buf == 0) and vim.api.nvim_get_current_buf() or buf
 end
 
+-- `resolve`, raising for a buffer that does not exist. Public calls taking `buf` share
+-- this so their error reads the same.
+function M.resolve_valid(buf)
+  buf = resolve(buf)
+  if not vim.api.nvim_buf_is_valid(buf) then
+    error("Tickbox: invalid buffer: " .. tostring(buf), 0)
+  end
+  return buf
+end
+
 -- Whether the buffer's filetype is configured, regardless of `disable`.
 function M.is_attached(buf)
   return attached[resolve(buf)] == true
@@ -173,10 +183,7 @@ function M.is_enabled(buf)
 end
 
 local function set_disabled(buf, value)
-  buf = resolve(buf)
-  if not vim.api.nvim_buf_is_valid(buf) then
-    error("Tickbox: invalid buffer: " .. tostring(buf), 0)
-  end
+  buf = M.resolve_valid(buf)
   disabled[buf] = value
   vim.api.nvim__redraw({ buf = buf, valid = false })
 end
