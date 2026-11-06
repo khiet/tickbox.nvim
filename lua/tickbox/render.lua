@@ -161,8 +161,8 @@ local function resolve(buf)
   return (buf == nil or buf == 0) and vim.api.nvim_get_current_buf() or buf
 end
 
--- `resolve`, raising for a buffer that does not exist. Public calls taking `buf` share
--- this so their error reads the same.
+-- Returns `buf`, or the current buffer for nil or 0. Raises if the buffer does not
+-- exist; public calls share it so they report an invalid buffer the same way.
 function M.resolve_valid(buf)
   buf = resolve(buf)
   if not vim.api.nvim_buf_is_valid(buf) then

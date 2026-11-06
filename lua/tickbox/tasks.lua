@@ -10,8 +10,6 @@ local M = {}
 function M.list(buf)
   buf = render.resolve_valid(buf)
   local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-  -- Built directly rather than through tree.get, whose cache is only cleared for
-  -- buffers the renderer attached.
   local by_lnum = tree.build(lines).tasks
   local tabstop = vim.bo[buf].tabstop
 
