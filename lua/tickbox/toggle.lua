@@ -3,16 +3,12 @@ local render = require("tickbox.render")
 
 local M = {}
 
--- The character each state becomes, per action. Toggle is a done/not-done switch, so
--- in-progress and cancelled tasks count as not done.
+-- Toggle is a done/not-done switch, so in-progress and cancelled tasks count as not done.
 local toggled = { unchecked = "x", in_progress = "x", checked = " ", cancelled = "x" }
 local cycled = { unchecked = "/", in_progress = "x", checked = "-", cancelled = " " }
 
--- Rewrites every task on lines `first` through `last` (1-indexed, inclusive; lines
--- outside the buffer are ignored) to `next_interior[task.state]`. Returns true if any
--- line was edited. Returns false when none were: only non-task or fenced lines, a
--- filetype that is not configured, or a nomodifiable buffer. Disabling rendering does
--- not stop this. All edits from one call are one undo step.
+-- Sets each task in the range to `next_interior[task.state]`, with the results
+-- `toggle_range` describes.
 local function rewrite_range(next_interior, first, last)
   if not vim.bo.modifiable or not render.is_attached() then
     return false
@@ -33,8 +29,11 @@ local function rewrite_range(next_interior, first, last)
   return changed
 end
 
--- Marks checked tasks unchecked and every other task checked. See `rewrite_range` for
--- the range and the result.
+-- Marks checked tasks unchecked and every other task checked, on lines `first` through
+-- `last` (1-indexed, inclusive; lines outside the buffer are ignored). Returns true if
+-- any line was edited. Returns false when none were: only non-task or fenced lines, a
+-- filetype that is not configured, or a nomodifiable buffer. Disabling rendering does
+-- not stop it. All edits from one call are one undo step.
 function M.toggle_range(first, last)
   return rewrite_range(toggled, first, last)
 end

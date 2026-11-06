@@ -1,12 +1,11 @@
 -- Pure markdown task parsing. No Neovim API, so it stays testable without a buffer.
 local M = {}
 
--- The character between the brackets for each state. "X" also reads as checked.
 local states = { [" "] = "unchecked", ["/"] = "in_progress", x = "checked", X = "checked", ["-"] = "cancelled" }
 
 -- Returns nil when the line is not a GFM task item, otherwise a table with
--- `state` ("unchecked" | "in_progress" | "checked" | "cancelled"), `ordered` (a numbered marker) and 0-indexed,
--- end-exclusive byte ranges:
+-- `state` ("unchecked" | "in_progress" | "checked" | "cancelled"), `ordered` (a
+-- numbered marker) and 0-indexed, end-exclusive byte ranges:
 -- `prefix_*` covers the marker through the closing bracket, `interior_*` the
 -- single character between the brackets. Does not know about fences; pair it with
 -- `fenced`.
