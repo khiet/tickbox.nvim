@@ -85,7 +85,7 @@ end)
 
 describe(":Tickbox completion", function()
   it("offers every subcommand", function()
-    assert.are.same({ "toggle", "enable", "disable" }, vim.fn.getcompletion("Tickbox ", "cmdline"))
+    assert.are.same({ "toggle", "cycle", "enable", "disable" }, vim.fn.getcompletion("Tickbox ", "cmdline"))
   end)
 
   it("filters by what was typed", function()

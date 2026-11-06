@@ -1,9 +1,11 @@
 -- Pure markdown task parsing. No Neovim API, so it stays testable without a buffer.
 local M = {}
 
+local states = { [" "] = "unchecked", ["/"] = "in_progress", x = "checked", X = "checked", ["-"] = "cancelled" }
+
 -- Returns nil when the line is not a GFM task item, otherwise a table with
--- `state` ("unchecked" | "checked"), `ordered` (a numbered marker) and 0-indexed,
--- end-exclusive byte ranges:
+-- `state` ("unchecked" | "in_progress" | "checked" | "cancelled"), `ordered` (a
+-- numbered marker) and 0-indexed, end-exclusive byte ranges:
 -- `prefix_*` covers the marker through the closing bracket, `interior_*` the
 -- single character between the brackets. Does not know about fences; pair it with
 -- `fenced`.
@@ -14,12 +16,12 @@ function M.classify(line)
   if not after_marker then
     return nil
   end
-  local bracket, interior = line:match("^ +()%[([ xX])%] ", after_marker)
+  local bracket, interior = line:match("^ +()%[([ xX/-])%] ", after_marker)
   if not bracket then
     return nil
   end
   return {
-    state = interior == " " and "unchecked" or "checked",
+    state = states[interior],
     ordered = after_bullet == nil,
     prefix_start = marker - 1,
     prefix_end = bracket + 2,

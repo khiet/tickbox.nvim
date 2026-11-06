@@ -2,6 +2,8 @@ local M = {}
 
 M.UNCHECKED = "󰄱"
 M.CHECKED = "󰱒"
+M.IN_PROGRESS = "󰡖"
+M.CANCELLED = "󰅗"
 
 function M.open(lines, filetype)
   vim.cmd("enew!")
