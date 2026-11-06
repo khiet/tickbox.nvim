@@ -2,13 +2,15 @@
 local M = {}
 
 -- Returns nil when the line is not a GFM task item, otherwise a table with
--- `state` ("unchecked" | "checked") and 0-indexed, end-exclusive byte ranges:
+-- `state` ("unchecked" | "checked"), `ordered` (a numbered marker) and 0-indexed,
+-- end-exclusive byte ranges:
 -- `prefix_*` covers the marker through the closing bracket, `interior_*` the
 -- single character between the brackets. Does not know about fences; pair it with
 -- `fenced`.
 function M.classify(line)
   local marker = line:match("^%s*()")
-  local after_marker = line:match("^[-*+]()", marker) or line:match("^%d+[.)]()", marker)
+  local after_bullet = line:match("^[-*+]()", marker)
+  local after_marker = after_bullet or line:match("^%d+[.)]()", marker)
   if not after_marker then
     return nil
   end
@@ -18,6 +20,7 @@ function M.classify(line)
   end
   return {
     state = interior == " " and "unchecked" or "checked",
+    ordered = after_bullet == nil,
     prefix_start = marker - 1,
     prefix_end = bracket + 2,
     interior_start = bracket,

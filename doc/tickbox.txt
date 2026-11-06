@@ -21,8 +21,7 @@ tickbox.nvim draws `- [ ] task` as a hollow box and `- [x] task` as a ticked
 box. Nothing else in the buffer is changed, and rendering never edits the
 text. One mapping toggles the task under the cursor, or every task in a visual
 range. Optional mappings start the next task on <CR>, |o| and |O|. There is no
-treesitter dependency, no 'conceallevel' change and no
-default keymap.
+treesitter dependency, no 'conceallevel' change and no default keymap.
 
 Requires Neovim 0.10 or later. The default glyphs need a Nerd Font; see
 |tickbox-options| for Unicode ones.
@@ -128,7 +127,8 @@ are too common to map everywhere: >lua
     })
 <
 A buffer-local <CR> hides a completion plugin's global one. If yours confirms
-with <CR>, check its menu first. For nvim-cmp: >lua
+with <CR>, check its menu first. For nvim-cmp, use this in place of the <CR>
+line in the callback above: >lua
     vim.keymap.set("i", "<CR>", function()
       if require("cmp").visible() then
         return "<Cmd>lua require('cmp').confirm()<CR>"

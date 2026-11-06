@@ -99,7 +99,7 @@ vim.api.nvim_create_autocmd("FileType", {
 })
 ```
 
-A buffer-local `<CR>` hides a completion plugin's global one. If yours confirms with `<CR>`, check its menu first. For nvim-cmp:
+A buffer-local `<CR>` hides a completion plugin's global one. If yours confirms with `<CR>`, check its menu first. For nvim-cmp, use this in place of the `<CR>` line in the callback above:
 
 ```lua
 vim.keymap.set("i", "<CR>", function()

@@ -18,17 +18,20 @@ local function cursor_task()
   local lines = vim.api.nvim_buf_get_lines(0, 0, row, false)
   local line = lines[row]
   local task = not parse.fenced(lines)[row] and parse.classify(line)
-  if not task or line:sub(task.prefix_start + 1):match("^%d") then
+  if not task or task.ordered then
     return nil
   end
   return line, task
 end
 
--- The new line's prefix, such as "  - [ ] ".
+-- The new line's prefix, such as "  - [ ] ". The marker is one character because
+-- ordered tasks never get here.
 local function prefix(line, task)
   return line:sub(1, task.prefix_start + 1) .. " [ ] "
 end
 
+-- Internal, reached through the <Cmd> `newline` returns. Expects what `newline` checked:
+-- the cursor line is a task and the cursor sits past its closing bracket.
 function M._newline()
   local row, col = unpack(vim.api.nvim_win_get_cursor(0))
   local line, task = cursor_task()
@@ -43,8 +46,9 @@ function M._newline()
   vim.api.nvim_win_set_cursor(0, { row + 1, #head })
 end
 
--- Runs in insert mode on the line `o` or `O` just opened, so the edit joins that insert's
--- undo step. Overwrites whatever indent or leader the opened line was given.
+-- Internal, reached through the <Cmd> `open` returns. Runs in insert mode on the line `o`
+-- or `O` just opened, so the edit joins that insert's undo step. Overwrites whatever
+-- indent or leader the opened line was given.
 function M._fill(head)
   vim.api.nvim_set_current_line(head)
   vim.api.nvim_win_set_cursor(0, { vim.api.nvim_win_get_cursor(0)[1], #head })
