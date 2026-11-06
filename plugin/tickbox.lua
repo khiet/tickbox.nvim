@@ -19,6 +19,18 @@ vim.keymap.set("x", "<Plug>(tickbox-toggle)", function()
   require("tickbox").toggle_range(math.min(anchor, cursor), math.max(anchor, cursor))
 end, { silent = true, desc = "Toggle every task in the selection" })
 
+vim.keymap.set("i", "<Plug>(tickbox-newline)", function()
+  return require("tickbox.continue").newline()
+end, { expr = true, desc = "Start a new line, continuing a task list" })
+
+vim.keymap.set("n", "<Plug>(tickbox-open-below)", function()
+  return require("tickbox.continue").open("o")
+end, { expr = true, desc = "Open a line below, continuing a task list" })
+
+vim.keymap.set("n", "<Plug>(tickbox-open-above)", function()
+  return require("tickbox.continue").open("O")
+end, { expr = true, desc = "Open a line above, continuing a task list" })
+
 local subcommands = {
   toggle = function(args)
     -- Without a range, both default to the cursor line.

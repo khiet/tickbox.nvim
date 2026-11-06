@@ -8,6 +8,7 @@ CONTENTS                                                             *tickbox*
   Options ................................. |tickbox-options|
   Commands ................................ |tickbox-commands|
   Mapping ................................. |tickbox-mapping|
+  Continuing a list ....................... |tickbox-continue|
   Lua API ................................. |tickbox-api|
   Highlight groups ........................ |tickbox-highlights|
   What counts as a task ................... |tickbox-tasks|
@@ -19,7 +20,8 @@ INTRODUCTION                                                   *tickbox-intro*
 tickbox.nvim draws `- [ ] task` as a hollow box and `- [x] task` as a ticked
 box. Nothing else in the buffer is changed, and rendering never edits the
 text. One mapping toggles the task under the cursor, or every task in a visual
-range. There is no treesitter dependency, no 'conceallevel' change and no
+range. Optional mappings start the next task on <CR>, |o| and |O|. There is no
+treesitter dependency, no 'conceallevel' change and no
 default keymap.
 
 Requires Neovim 0.10 or later. The default glyphs need a Nerd Font; see
@@ -93,6 +95,46 @@ otherwise switch to the alternate buffer with <C-^>, if there is one. Calling
         end, { buffer = args.buf })
       end,
     })
+<
+==============================================================================
+CONTINUING A LIST                                           *tickbox-continue*
+                                                     *<Plug>(tickbox-newline)*
+                                                  *<Plug>(tickbox-open-below)*
+                                                  *<Plug>(tickbox-open-above)*
+
+Three more mappings, also unbound, start a new unchecked task with the
+indentation and marker of the task line under the cursor. Off a task line
+they act as plain keys.
+
+<Plug>(tickbox-newline)       Insert mode. Like <CR>; on an empty task it
+                              clears the line instead, ending the list.
+<Plug>(tickbox-open-below)    Normal mode. Like |o|.
+<Plug>(tickbox-open-above)    Normal mode. Like |O|.
+
+Ordered tasks such as `1. [ ]` are not continued. The new line ignores
+'formatoptions', so a plugin that continues lists itself, like vim-markdown,
+does not add a second marker. Bind them per buffer, since <CR>, |o| and |O|
+are too common to map everywhere: >lua
+    vim.api.nvim_create_autocmd("FileType", {
+      pattern = "markdown",
+      callback = function(args)
+        vim.keymap.set("i", "<CR>", "<Plug>(tickbox-newline)",
+          { buffer = args.buf })
+        vim.keymap.set("n", "o", "<Plug>(tickbox-open-below)",
+          { buffer = args.buf })
+        vim.keymap.set("n", "O", "<Plug>(tickbox-open-above)",
+          { buffer = args.buf })
+      end,
+    })
+<
+A buffer-local <CR> hides a completion plugin's global one. If yours confirms
+with <CR>, check its menu first. For nvim-cmp: >lua
+    vim.keymap.set("i", "<CR>", function()
+      if require("cmp").visible() then
+        return "<Cmd>lua require('cmp').confirm()<CR>"
+      end
+      return "<Plug>(tickbox-newline)"
+    end, { buffer = args.buf, expr = true, remap = true })
 <
 ==============================================================================
 LUA API                                                          *tickbox-api*
