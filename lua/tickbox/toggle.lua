@@ -10,9 +10,9 @@ local cycled = { unchecked = "/", in_progress = "x", checked = "-", cancelled = 
 
 -- Brings the ancestors of the tasks on `edited` lines in line with their descendants: an
 -- ancestor whose counted descendants are all checked becomes checked, and a checked one
--- with a descendant that is not becomes unchecked. Cancelled ancestors, the edited tasks
--- themselves and their descendants are left alone, so a range never undoes its own edit. Must run in the same call as the edits, so all
--- of them stay one undo step.
+-- with a descendant that is not becomes unchecked. Cancelled ancestors are left alone,
+-- and so are edited tasks, so a range never undoes its own edit. Must run in the same
+-- call as the edits, so all of them stay one undo step.
 local function propagate(edited)
   local tasks = tree.get(0).tasks
   local is_edited = {}
