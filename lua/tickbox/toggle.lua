@@ -10,11 +10,15 @@ local cycled = { unchecked = "/", in_progress = "x", checked = "-", cancelled = 
 
 -- Brings the ancestors of the tasks on `edited` lines in line with their descendants: an
 -- ancestor whose counted descendants are all checked becomes checked, and a checked one
--- with a descendant that is not becomes unchecked. Cancelled ancestors and the edited
--- tasks' own descendants are left alone. Must run in the same call as the edits, so all
+-- with a descendant that is not becomes unchecked. Cancelled ancestors, the edited tasks
+-- themselves and their descendants are left alone, so a range never undoes its own edit. Must run in the same call as the edits, so all
 -- of them stay one undo step.
 local function propagate(edited)
   local tasks = tree.get(0).tasks
+  local is_edited = {}
+  for _, lnum in ipairs(edited) do
+    is_edited[lnum] = true
+  end
   local pending = {}
   for _, lnum in ipairs(edited) do
     local parent = tasks[lnum].parent
@@ -22,6 +26,9 @@ local function propagate(edited)
       pending[parent] = true
       parent = tasks[parent].parent
     end
+  end
+  for lnum in pairs(is_edited) do
+    pending[lnum] = nil
   end
   -- Descendants sit below their ancestors, so going bottom-up settles every ancestor's
   -- subtree before the ancestor itself is judged.
@@ -35,7 +42,7 @@ local function propagate(edited)
   local function state(lnum)
     return rewritten[lnum] or tasks[lnum].state
   end
-  local function tally(lnum)
+  local function subtree_counts(lnum)
     local done, total = 0, 0
     for _, child in ipairs(tasks[lnum].children) do
       local s = state(child)
@@ -43,7 +50,7 @@ local function propagate(edited)
         total = total + 1
         done = done + (s == "checked" and 1 or 0)
       end
-      local d, t = tally(child)
+      local d, t = subtree_counts(child)
       done, total = done + d, total + t
     end
     return done, total
@@ -51,7 +58,7 @@ local function propagate(edited)
 
   for _, lnum in ipairs(order) do
     local current = state(lnum)
-    local done, total = tally(lnum)
+    local done, total = subtree_counts(lnum)
     local target
     if current == "cancelled" or total == 0 then
       target = nil

@@ -102,6 +102,12 @@ describe("auto_check_parent", function()
     assert.are.same(before, lines())
   end)
 
+  it("keeps a parent the range itself toggled", function()
+    h.open({ "- [ ] parent", "  - [ ] a", "  - [ ] b" })
+    tickbox.toggle_range(1, 2)
+    assert.are.same({ "- [x] parent", "  - [x] a", "  - [ ] b" }, lines())
+  end)
+
   it("ignores fenced lines", function()
     h.open({ "- [ ] parent", "  ```", "  - [ ] sample", "  ```", "  - [ ] a" })
     toggle_at(5)

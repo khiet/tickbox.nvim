@@ -50,9 +50,9 @@ describe("tree", function()
     assert.are.equal("0/1", count(lines, 5))
   end)
 
-  it("ends task runs at a heading", function()
-    local lines = { "- [ ] parent", "# H", "  - [x] a" }
-    assert.is_nil(count(lines, 1))
+  it("ends task runs at a heading only by its indentation", function()
+    assert.is_nil(count({ "- [ ] parent", "# H", "  - [x] a" }, 1))
+    assert.are.equal("1/1", count({ "- [ ] parent", "  ## H", "  - [x] a" }, 1))
   end)
 
   it("counts nothing for a heading without tasks or a parent of only cancelled tasks", function()

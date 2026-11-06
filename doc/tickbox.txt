@@ -99,7 +99,7 @@ four columns.
 
 A heading (`#` to `######`) holds every task until the next heading of the
 same or a higher level, so `## A` includes the tasks under a `### B` inside
-it. A heading also ends every task's descendants.
+it.
 
 Counts cover all descendants, not only direct children. `done` is checked
 tasks and `total` is unchecked, in-progress and checked ones; cancelled tasks

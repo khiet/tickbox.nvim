@@ -23,15 +23,16 @@ end
 
 -- Returns, for 1-indexed `lines` from the top of the buffer:
 -- `fenced`: the parse.fenced set.
--- `tasks`: by line number, each parse.classify result plus `parent` (the line number of
---   the nearest enclosing task, or nil) and `children` (line numbers of direct child tasks).
+-- `tasks`: by line number, each parse.classify result plus `lnum`, `indent` (its width in
+--   columns), `parent` (the line number of the nearest enclosing task, or nil) and
+--   `children` (line numbers of direct child tasks).
 -- `counts`: by line number, `{ done, total }` for each task and heading with at least one
 --   counted task under it. Counts cover all descendants; cancelled tasks are left out.
 --
 -- A task's descendants are the task lines after it with a greater indentation, up to the
 -- first non-blank line indented the same or less. A heading's tasks run to the next
--- heading of the same or a higher level, and a heading also ends every task run. Fenced
--- lines are skipped, so they neither count nor end a run.
+-- heading of the same or a higher level. Fenced lines are skipped, so they neither count
+-- nor end a run.
 function M.build(lines)
   local fenced = parse.fenced(lines)
   local tasks, counts = {}, {}
@@ -50,7 +51,7 @@ function M.build(lines)
   for lnum, line in ipairs(lines) do
     if not fenced[lnum] and line:find("%S") then
       local level = heading_level(line)
-      local width = level and -1 or indent_width(line)
+      local width = indent_width(line)
       while #open_tasks > 0 and open_tasks[#open_tasks].indent >= width do
         table.remove(open_tasks)
       end

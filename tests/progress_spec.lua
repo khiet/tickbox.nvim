@@ -1,7 +1,7 @@
 local h = require("tests.helpers")
 local tickbox = require("tickbox")
 
-local U, X, P, C = h.UNCHECKED, h.CHECKED, h.IN_PROGRESS, h.CANCELLED
+local U, X, C = h.UNCHECKED, h.CHECKED, h.CANCELLED
 
 local function soft(row)
   return h.screen_line(row, { soft = true })

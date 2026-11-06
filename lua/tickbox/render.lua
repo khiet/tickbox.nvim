@@ -16,9 +16,8 @@ local attached = {}
 -- FileType event a :e reload fires, and lasts until `enable` or the buffer is wiped.
 local disabled = {}
 -- Buffers with an nvim_buf_attach listener, which repaints when progress counts change.
+-- Each holds `counts`, the tree.counts table the listener last saw.
 local watched = {}
--- Per buffer, the tree.counts table the listener last saw.
-local seen_counts = {}
 -- The line left raw for typing in insert or replace mode, { win, buf, row }. Nil when
 -- not typing or when the current buffer is not attached.
 local revealed
@@ -32,23 +31,22 @@ local function watch(buf)
   if watched[buf] or not vim.api.nvim_buf_is_loaded(buf) then
     return
   end
-  watched[buf] = true
+  local watch_state = {}
+  watched[buf] = watch_state
   vim.api.nvim_buf_attach(buf, false, {
     on_lines = function()
       if not (config.progress and attached[buf]) then
         watched[buf] = nil
-        seen_counts[buf] = nil
         return true
       end
       local counts = tree.get(buf).counts
-      if not vim.deep_equal(counts, seen_counts[buf]) then
-        seen_counts[buf] = counts
+      if not vim.deep_equal(counts, watch_state.counts) then
+        watch_state.counts = counts
         vim.api.nvim__redraw({ buf = buf, valid = false })
       end
     end,
     on_detach = function()
       watched[buf] = nil
-      seen_counts[buf] = nil
     end,
   })
 end
