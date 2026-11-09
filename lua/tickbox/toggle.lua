@@ -1,13 +1,20 @@
 local parse = require("tickbox.parse")
 local render = require("tickbox.render")
+local state = require("tickbox.state")
 local tree = require("tickbox.tree")
 
 local M = {}
 
--- Toggle is a done/not-done switch, so in-progress and cancelled tasks count as not done.
-local toggled = { unchecked = "x", in_progress = "x", checked = " ", cancelled = "x" }
-local cycled = { unchecked = "/", in_progress = "x", checked = "-", cancelled = " " }
-local interiors = { unchecked = " ", in_progress = "/", checked = "x", cancelled = "-" }
+local function interior_of(name)
+  return state.states[name].interior
+end
+
+-- Both map a task's state to the interior that replaces it.
+local toggled, cycled = {}, {}
+for _, name in ipairs(state.order) do
+  toggled[name] = interior_of(state.toggled(name))
+  cycled[name] = interior_of(state.states[name].successor)
+end
 
 -- Brings the ancestors of the tasks on `edited` lines in line with their descendants: an
 -- ancestor whose counted descendants are all checked becomes checked, and a checked one
@@ -36,16 +43,16 @@ local function propagate(edited, range_tasks)
 
   -- States rewritten so far, by line number; the tree still holds the old ones.
   local rewritten = {}
-  local function state(lnum)
+  local function state_of(lnum)
     return rewritten[lnum] or tasks[lnum].state
   end
   local function subtree_counts(lnum)
     local done, total = 0, 0
     for _, child in ipairs(tasks[lnum].children) do
-      local s = state(child)
-      if s ~= "cancelled" then
+      local s = state_of(child)
+      if state.counts(s) then
         total = total + 1
-        done = done + (s == "checked" and 1 or 0)
+        done = done + (state.is_done(s) and 1 or 0)
       end
       local d, t = subtree_counts(child)
       done, total = done + d, total + t
@@ -54,19 +61,19 @@ local function propagate(edited, range_tasks)
   end
 
   for _, lnum in ipairs(order) do
-    local current = state(lnum)
+    local current = state_of(lnum)
     local done, total = subtree_counts(lnum)
     local target
-    if current == "cancelled" or total == 0 then
+    if not state.counts(current) or total == 0 then
       target = nil
     elseif done == total then
-      target = "checked"
-    elseif current == "checked" then
-      target = "unchecked"
+      target = state.done
+    elseif state.is_done(current) then
+      target = state.toggled(current)
     end
     if target and target ~= current then
       local task = tasks[lnum]
-      vim.api.nvim_buf_set_text(0, lnum - 1, task.interior_start, lnum - 1, task.interior_end, { interiors[target] })
+      vim.api.nvim_buf_set_text(0, lnum - 1, task.interior_start, lnum - 1, task.interior_end, { interior_of(target) })
       rewritten[lnum] = target
     end
   end
@@ -116,16 +123,16 @@ function M.cycle_range(first, last)
   return rewrite_range(cycled, first, last)
 end
 
--- Sets each task to `state`, leaving any already in it unedited. Same range and result
+-- Sets each task to `name`, leaving any already in it unedited. Same range and result
 -- as `toggle_range`. Raises on an unknown state, even when no line would change.
-function M.set_range(state, first, last)
-  if not interiors[state] then
-    error("Tickbox: unknown state: " .. tostring(state), 0)
+function M.set_range(name, first, last)
+  if not state.states[name] then
+    error("Tickbox: unknown state: " .. tostring(name), 0)
   end
   local next_interior = {}
-  for other in pairs(interiors) do
-    if other ~= state then
-      next_interior[other] = interiors[state]
+  for _, other in ipairs(state.order) do
+    if other ~= name then
+      next_interior[other] = interior_of(name)
     end
   end
   return rewrite_range(next_interior, first, last)
@@ -143,16 +150,16 @@ function M.cycle()
   return M.cycle_range(lnum, lnum)
 end
 
-function M.set(state)
+function M.set(name)
   local lnum = vim.api.nvim_win_get_cursor(0)[1]
-  return M.set_range(state, lnum, lnum)
+  return M.set_range(name, lnum, lnum)
 end
 
 -- One function per state, because `operatorfunc` can only name a function and passes it
 -- the motion type. Internal to the `<Plug>` mappings, so not re-exported by `tickbox`.
-for state in pairs(interiors) do
-  M["set_" .. state] = function()
-    return M.set(state)
+for _, name in ipairs(state.order) do
+  M["set_" .. name] = function()
+    return M.set(name)
   end
 end
 

@@ -32,7 +32,7 @@ map_action("cycle", "cycle", function(first, last)
   require("tickbox").cycle_range(first, last)
 end, "Cycle the state of the task under the cursor", "Cycle every task in the selection")
 
-local states = { "unchecked", "in_progress", "checked", "cancelled" }
+local states = require("tickbox.state").order
 
 for _, state in ipairs(states) do
   local label = state:gsub("_", "-")
