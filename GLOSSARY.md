@@ -1,0 +1,20 @@
+# Glossary
+
+Terms the code and its tickets use. Each names one concept; use it, not a synonym.
+
+- **Task**: a GFM task list item: a list marker, a space, a bracket pair with one interior character, a space. Ordered markers (`1.` or `1)`) make an **ordered task**.
+- **State**: what a task's interior character means. Four states: unchecked `[ ]`, in progress `[/]`, checked `[x]` or `[X]`, cancelled `[-]`. The alphabet, and everything keyed by state (interior character, highlight group, default icon, cycle successor, counting role), lives in the `state` module.
+- **Interior**: the single character between a task's brackets. Writing a task's interior is how its state changes.
+- **Prefix**: a task's text from the list marker through the closing bracket. Rendering overlays it; continuation copies it.
+- **Fence**: a fenced code block, delimited by three or more backticks or tildes, possibly after a list marker. Lines inside a fence are never tasks, never headings, and never counted.
+- **Tree**: the task and heading hierarchy of a buffer: each task's parent and children, and done/total counts for parents and headings. Built once per buffer change and cached by changedtick. The only module that finds tasks in a buffer.
+- **Descendants**: the task lines after a task with greater indentation, up to the first non-blank line indented the same or less.
+- **Counts**: `done/total` over a task's or heading's descendants. Cancelled tasks are left out; checked tasks are done.
+- **Toggle**: a done/not-done switch. Checked becomes unchecked; every other state becomes checked.
+- **Cycle**: advance a task to its successor: unchecked, in progress, checked, cancelled, unchecked.
+- **Set**: put a task in a named state. A task already in that state is left unedited.
+- **Propagate** (auto-check): after an edit, bring ancestors in line with their descendants. Never changes descendants, cancelled ancestors or headings.
+- **Attached**: a buffer whose filetype is in the configured `filetypes`. Toggling, cycling, setting and continuation work only in attached buffers.
+- **Disabled**: an attached buffer whose rendering was turned off with `disable`. Editing actions ignore it.
+- **Revealed line**: the cursor line in insert or replace mode, drawn raw so the typed text is visible.
+- **Continue**: start a new unchecked task on the next line from a task line, on Enter or `o`/`O`.
