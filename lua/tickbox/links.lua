@@ -18,15 +18,20 @@ local CONCEALCURSOR = "cn"
 local stripped = {}
 -- Buffers with a sync scheduled by `check`.
 local pending = {}
--- Buffers where the highlighter failed to start, so `check` does not retry on every redraw.
-local failed = {}
+-- Buffers that keep the highlighter they have until the next autocmd: ours failed to start,
+-- or a window the user set to conceal shares the buffer. `check` must not retry these on
+-- every redraw.
+local held = {}
+-- Whether this session has set the options, since they alone cannot prove a window is ours:
+-- a user may have set the same values, and with this never on they must not be touched.
+local applied = false
 
 local function active(buf)
   return vim.treesitter.highlighter.active[buf]
 end
 
 local function is_ours(win)
-  return vim.wo[win].conceallevel == 2 and vim.wo[win].concealcursor == CONCEALCURSOR
+  return applied and vim.wo[win].conceallevel == 2 and vim.wo[win].concealcursor == CONCEALCURSOR
 end
 
 -- buftype leaves out LSP hover floats, which rely on stock conceal. The highlighter leaves
@@ -94,6 +99,7 @@ local function stop_stripped(buf)
 end
 
 local function apply(win)
+  applied = true
   vim.api.nvim_win_call(win, function()
     vim.opt_local.conceallevel = 2
     vim.opt_local.concealcursor = CONCEALCURSOR
@@ -118,11 +124,12 @@ local function sync(buf)
       end
     end
     stop_stripped(buf)
+    held[buf] = nil
     return
   end
 
-  -- The highlighter is per buffer, so a window the user set to conceal, next to one of
-  -- ours showing the same buffer, loses its stock conceal too.
+  -- The highlighter is per buffer, so a window the user set to conceal keeps it stock for
+  -- them all, and the other windows stay raw, since at this level stock conceals every line.
   local ours, theirs = {}, false
   for _, win in ipairs(wins) do
     if vim.wo[win].conceallevel == 0 or is_ours(win) then
@@ -131,14 +138,11 @@ local function sync(buf)
       theirs = true
     end
   end
-  if #ours == 0 then
-    if theirs then
-      stop_stripped(buf)
-    end
-    return
+  if theirs then
+    stop_stripped(buf)
   end
-  local started = start_stripped(buf)
-  failed[buf] = not started or nil
+  local started = not theirs and #ours > 0 and start_stripped(buf)
+  held[buf] = (#ours > 0 and not started) or nil
   for _, win in ipairs(ours) do
     if started then
       apply(win)
@@ -157,11 +161,11 @@ end
 -- Each case must be one `sync` resolves, since the redraw it asks for lands back here.
 function M.check(win, buf)
   local current = active(buf)
-  if current == stripped[buf] or pending[buf] or failed[buf] then
+  if current == stripped[buf] or pending[buf] or held[buf] then
     return
   end
-  local level = vim.wo[win].conceallevel
-  local stale = stripped[buf] ~= nil or (qualifies(buf) and (level == 0 or is_ours(win)))
+  local stale = stripped[buf] ~= nil
+    or (qualifies(buf) and (vim.wo[win].conceallevel == 0 or is_ours(win)))
   if stale then
     pending[buf] = true
     vim.schedule(function()
@@ -190,7 +194,7 @@ function M.start()
     group = group,
     callback = function(args)
       stripped[args.buf] = nil
-      failed[args.buf] = nil
+      held[args.buf] = nil
     end,
   })
   -- Buffers opened before the plugin loaded missed their FileType event, and a previous

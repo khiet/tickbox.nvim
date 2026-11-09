@@ -182,16 +182,10 @@ local function title_end(line, pos)
   end
 end
 
--- The link whose bracket opens at 1-indexed `open`, or nil. A label holding a link or an
--- image is refused: links cannot nest, so an inner link is the real one, and an image
--- stays raw even inside a link.
+-- The link or image whose bracket opens at 1-indexed `open`, or nil.
 local function link_at(line, open)
   local close = label_close(line, open)
   if not close or line:sub(close + 1, close + 1) ~= "(" then
-    return nil
-  end
-  local label = line:sub(open + 1, close - 1)
-  if not label:find("%S") or label:find("](", 1, true) then
     return nil
   end
   local dest_end = destination_end(line, line:match("^%s*()", close + 2))
@@ -236,10 +230,15 @@ function M.links(line, from)
       i = image and image.stop + 1 or i + 1
     elseif char == "[" then
       local link = link_at(line, i)
-      if link then
+      local label = link and line:sub(link.label_start + 1, link.label_end)
+      -- A label holding a link or an image is refused: links cannot nest, so an inner link
+      -- is the real one, and an image stays raw even inside a link.
+      if label and label:find("%S") and not label:find("](", 1, true) then
         table.insert(found, link)
+        i = link.stop + 1
+      else
+        i = i + 1
       end
-      i = link and link.stop + 1 or i + 1
     else
       i = i + 1
     end

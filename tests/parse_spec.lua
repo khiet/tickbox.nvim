@@ -160,6 +160,7 @@ describe("parse.links", function()
   local raw = {
     { "an image", "![a](u) now" },
     { "an image inside a link", "[![a](u)](v) now" },
+    { "a link inside an image", "![[a](u)](v) now" },
     { "a reference link", "[a][b] now" },
     { "a shortcut reference", "[a] now" },
     { "a bare url", "https://x.io/a now" },

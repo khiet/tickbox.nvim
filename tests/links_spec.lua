@@ -4,6 +4,7 @@ local tickbox = require("tickbox")
 local URL = "https://example.com/ABC-123"
 local TASK = "- [ ] see [ABC-123](" .. URL .. ") now"
 local DRAWN = h.UNCHECKED .. "     see ABC-123 now"
+local RAW = h.UNCHECKED .. "     see [ABC-123](" .. URL .. ") now"
 
 -- The markdown_inline injection parses asynchronously, so a screen read straight after
 -- opening a buffer shows other lines raw even under stock conceal. The wait also runs the
@@ -47,6 +48,25 @@ local function park_cursor(buf)
   vim.api.nvim_win_set_cursor(0, { vim.api.nvim_buf_line_count(buf), 0 })
 end
 
+-- A child Neovim, for what this process cannot show: a UI, or never having had `links` on.
+-- Returns a function that makes RPC requests to it and one that stops it.
+local function embedded()
+  local child = vim.fn.jobstart({
+    vim.v.progpath,
+    "--embed",
+    "--noplugin",
+    "-u",
+    "tests/minimal_init.lua",
+  }, { rpc = true })
+  -- --embed loads the init only once a UI attaches.
+  vim.rpcrequest(child, "nvim_ui_attach", 90, 14, {})
+  return function(...)
+    return vim.rpcrequest(child, ...)
+  end, function()
+    vim.fn.jobstop(child)
+  end
+end
+
 describe("links", function()
   after_each(function()
     tickbox.setup()
@@ -62,7 +82,7 @@ describe("links", function()
       tickbox.setup()
       local buf = open_treesitter({ TASK, "last" })
       park_cursor(buf)
-      assert.are.equal(h.UNCHECKED .. "     see [ABC-123](" .. URL .. ") now", h.screen_line(1))
+      assert.are.equal(RAW, h.screen_line(1))
     end)
 
     it("changes no window option or highlighter", function()
@@ -73,6 +93,20 @@ describe("links", function()
       assert.are.equal(0, vim.wo.conceallevel)
       assert.are.equal("", vim.wo.concealcursor)
       assert.are.equal(stock, vim.treesitter.highlighter.active[buf])
+    end)
+  end)
+
+  describe("never turned on", function()
+    it("leaves a window alone even with the options it would have set", function()
+      local call, stop = embedded()
+      call("nvim_command", "setlocal conceallevel=2 concealcursor=cn")
+      call("nvim_exec_lua", [[require("tickbox").setup()]], {})
+      call("nvim_command", "doautocmd BufWinEnter")
+      local level = call("nvim_get_option_value", "conceallevel", { scope = "local" })
+      local cursor = call("nvim_get_option_value", "concealcursor", { scope = "local" })
+      stop()
+      assert.are.equal(2, level)
+      assert.are.equal("cn", cursor)
     end)
   end)
 
@@ -246,25 +280,10 @@ describe("links", function()
         assert.are.equal(DRAWN, h.screen_line(1, { soft = true }))
       end)
 
-      -- Needs a child Neovim with a UI attached: headless Neovim keeps no screen cursor, and
-      -- wincol() reports the raw column even when the cursor is drawn elsewhere.
+      -- Needs a UI attached: headless Neovim keeps no screen cursor, and wincol() reports the
+      -- raw column even when the cursor is drawn elsewhere.
       it("puts the insert cursor at the raw column when the line is revealed", function()
-        local child = vim.fn.jobstart({
-          vim.v.progpath,
-          "--embed",
-          "--noplugin",
-          "-u",
-          "tests/minimal_init.lua",
-        }, { rpc = true })
-        local function call(...)
-          return vim.rpcrequest(child, ...)
-        end
-        local function wait_mode(mode)
-          vim.wait(1000, function()
-            return call("nvim_get_mode").mode == mode
-          end)
-        end
-        call("nvim_ui_attach", 90, 14, {})
+        local call, stop = embedded()
         call("nvim_exec_lua", [[require("tickbox").setup({ links = true })]], {})
         call("nvim_command", "enew")
         call("nvim_buf_set_lines", 0, 0, -1, false, { TASK, "last" })
@@ -275,10 +294,12 @@ describe("links", function()
         local concealed = call("nvim_call_function", "screencol", {})
 
         call("nvim_input", "i")
-        wait_mode("i")
+        vim.wait(1000, function()
+          return call("nvim_get_mode").mode == "i"
+        end)
         call("nvim_command", "redraw")
         local revealed = call("nvim_call_function", "screencol", {})
-        vim.fn.jobstop(child)
+        stop()
 
         assert.are.equal(21, concealed)
         assert.are.equal(#TASK, revealed)
@@ -291,7 +312,7 @@ describe("links", function()
         h.type("v<PROBE><Esc>", function()
           seen = h.screen_line(1)
         end)
-        assert.are.equal(h.UNCHECKED .. "     see [ABC-123](" .. URL .. ") now", seen)
+        assert.are.equal(RAW, seen)
       end)
     end)
 
@@ -307,6 +328,12 @@ describe("links", function()
           assert.are.same({ URL }, vim.ui._get_urls())
         end)
       end
+    end)
+
+    it("gx opens the word under the cursor on plain task text", function()
+      open_treesitter({ "- [ ] https://example.com/plain [a](" .. URL .. ")" })
+      vim.api.nvim_win_set_cursor(0, { 1, 10 })
+      assert.are.same({ "https://example.com/plain" }, vim.ui._get_urls())
     end)
 
     describe("reloading", function()
@@ -380,7 +407,7 @@ describe("links", function()
         settle()
         assert.are.equal(0, vim.wo.conceallevel)
         assert.are.equal("", vim.wo.concealcursor)
-        assert.are.equal(h.UNCHECKED .. "     see [ABC-123](" .. URL .. ") now", h.screen_line(1))
+        assert.are.equal(RAW, h.screen_line(1))
       end)
 
       it("keeps the options and highlighter of a window already concealing", function()
@@ -396,6 +423,26 @@ describe("links", function()
         assert.are.equal(1, vim.wo.conceallevel)
         assert.are.equal("n", vim.wo.concealcursor)
         assert.are.equal(stock, vim.treesitter.highlighter.active[buf])
+      end)
+    end)
+
+    describe("a buffer also shown in a window already concealing", function()
+      it("keeps the shared highlighter and leaves the other window raw", function()
+        local buf = h.open({ TASK, "prose [a](" .. URL .. ")", "last" })
+        vim.opt_local.conceallevel = 1
+        vim.treesitter.start(buf, "markdown")
+        local stock = vim.treesitter.highlighter.active[buf]
+        settle()
+        vim.cmd("split")
+        vim.opt_local.conceallevel = 0
+        vim.opt_local.concealcursor = ""
+        settle()
+        assert.are.equal(stock, vim.treesitter.highlighter.active[buf])
+        assert.are.equal(0, vim.wo.conceallevel)
+        vim.api.nvim_win_set_cursor(0, { 3, 0 })
+        assert.are.equal(RAW, h.screen_line(1))
+        vim.cmd("wincmd p")
+        assert.are.equal(1, vim.wo.conceallevel)
       end)
     end)
 
@@ -423,7 +470,7 @@ describe("links", function()
 
         local buf = open_treesitter({ TASK, "last" })
         park_cursor(buf)
-        assert.are.equal(h.UNCHECKED .. "     see [ABC-123](" .. URL .. ") now", h.screen_line(1))
+        assert.are.equal(RAW, h.screen_line(1))
         assert.is_truthy(vim.treesitter.highlighter.active[buf])
         assert.are.equal(0, vim.wo.conceallevel)
 
@@ -461,7 +508,7 @@ describe("links", function()
         assert.is_truthy(vim.treesitter.highlighter.active[buf])
         assert.are_not.equal(ours, vim.treesitter.highlighter.active[buf])
         park_cursor(buf)
-        assert.are.equal(h.UNCHECKED .. "     see [ABC-123](" .. URL .. ") now", h.screen_line(1))
+        assert.are.equal(RAW, h.screen_line(1))
 
         -- The stock queries are back: raising the level conceals the prose again.
         vim.opt_local.conceallevel = 2

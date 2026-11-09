@@ -185,8 +185,8 @@ uses the same query files minus their conceal directives. A later `setup` with
 Without a treesitter highlighter, links stay raw; Neovim 0.12 starts one for
 markdown by itself. A window already above level 0 keeps its options and its
 highlighter and only gets the labels, because its owner already chose conceal.
-If a buffer shows in such a window and in another that this manages, the
-highlighter is shared, so the first window loses Neovim's conceal too.
+The highlighter belongs to the buffer, so if the buffer also shows in a window
+at level 0, links stay raw there.
 
 |:Tickbox| `disable` keeps folds, because it only stops drawing. The count
 disappears with the other rendering.
