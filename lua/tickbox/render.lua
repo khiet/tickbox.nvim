@@ -140,8 +140,8 @@ local function update_revealed()
   repaint(revealed)
 end
 
--- Safe to call repeatedly. Expects `buffers.setup` to have run with the options to
--- draw with, so that the FileType autocmd here fires after the one that attaches.
+-- Safe to call repeatedly. Expects `buffers.setup` to have run first, so the options
+-- exist and its FileType autocmd fires before the one defined here.
 function M.start()
   define_highlights()
 

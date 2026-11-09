@@ -1,10 +1,9 @@
--- Owns the options and which buffers the plugin acts on, and answers the two questions
--- every other module asks about a buffer: may it be edited, and does it render.
+-- Owns the options and which buffers the plugin acts on, so that the other modules ask
+-- here whether a buffer may be edited or renders instead of deciding it themselves.
 local M = {}
 
 local group = vim.api.nvim_create_augroup("tickbox_buffers", { clear = true })
 
--- The merged options from the latest `setup`.
 local options
 -- Buffers whose filetype is in options.filetypes. Keyed by buffer number.
 local attached = {}
@@ -49,7 +48,7 @@ local function set_disabled(buf, value)
   end
   disabled[buf] = value
   -- Nothing else tells the decoration provider the answer changed, so the buffer's
-  -- windows are invalidated here; the provider does the drawing.
+  -- windows are invalidated here.
   vim.api.nvim__redraw({ buf = buf, valid = false })
 end
 
@@ -63,8 +62,8 @@ function M.disable(buf)
 end
 
 -- Safe to call repeatedly; the latest options replace the previous ones. Must run
--- before `render.start`, so that the FileType autocmd here fires before render's and
--- render sees the sets already updated.
+-- before `render.start`: autocmds fire in definition order, and render's FileType
+-- callback expects the buffer to be attached already.
 function M.setup(opts)
   options = opts
 
