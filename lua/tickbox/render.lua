@@ -2,6 +2,7 @@
 -- only for the redraw that placed them: there is nothing to clear or keep in sync,
 -- and text changes, undo, :e, folds and scrolling are covered by redraws alone.
 local parse = require("tickbox.parse")
+local state = require("tickbox.state")
 local tree = require("tickbox.tree")
 
 local M = {}
@@ -60,21 +61,14 @@ end
 
 local function define_highlights()
   -- default = true so a colorscheme or user definition wins.
-  vim.api.nvim_set_hl(0, "TickboxUnchecked", { link = "Comment", default = true })
-  vim.api.nvim_set_hl(0, "TickboxInProgress", { link = "DiagnosticWarn", default = true })
-  vim.api.nvim_set_hl(0, "TickboxChecked", { link = "DiagnosticOk", default = true })
-  vim.api.nvim_set_hl(0, "TickboxCancelled", { link = "Comment", default = true })
+  for _, name in ipairs(state.order) do
+    local entry = state.states[name]
+    vim.api.nvim_set_hl(0, entry.highlight, { link = entry.link, default = true })
+  end
   -- Empty so done text looks unchanged until the user defines it.
   vim.api.nvim_set_hl(0, "TickboxCheckedText", { default = true })
   vim.api.nvim_set_hl(0, "TickboxProgress", { link = "Comment", default = true })
 end
-
-local glyph_groups = {
-  unchecked = "TickboxUnchecked",
-  in_progress = "TickboxInProgress",
-  checked = "TickboxChecked",
-  cancelled = "TickboxCancelled",
-}
 
 local function draw_progress(buf, row)
   local count = tree.get(buf).counts[row + 1]
@@ -106,7 +100,7 @@ local function draw(buf, row)
   vim.api.nvim_buf_set_extmark(buf, ns, row, task.prefix_start, {
     ephemeral = true,
     virt_text = {
-      { icon, glyph_groups[task.state] },
+      { icon, state.states[task.state].highlight },
       { string.rep(" ", math.max(padding, 0)) },
     },
     virt_text_pos = "overlay",
@@ -119,7 +113,7 @@ local function draw(buf, row)
 
   -- Starts past the space that ends the prefix, so a strikethrough begins at the text.
   local text_start = task.prefix_end + 1
-  if style_checked_text and task.state == "checked" and text_start < #line then
+  if style_checked_text and state.is_done(task.state) and text_start < #line then
     vim.api.nvim_buf_set_extmark(buf, ns, row, text_start, {
       ephemeral = true,
       end_col = #line,

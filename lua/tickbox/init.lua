@@ -1,16 +1,17 @@
 local render = require("tickbox.render")
+local state = require("tickbox.state")
 local toggle = require("tickbox.toggle")
 
 local M = {}
 
+local default_icons = {}
+for name, entry in pairs(state.states) do
+  default_icons[name] = entry.icon
+end
+
 local defaults = {
   filetypes = { "markdown" },
-  icons = {
-    unchecked = "󰄱",
-    in_progress = "󰡖",
-    checked = "󰱒",
-    cancelled = "󰅗",
-  },
+  icons = default_icons,
   -- Draws done/total at the end of parent task and heading lines.
   progress = false,
   -- After a toggle or cycle, checks an ancestor whose counted descendants are all

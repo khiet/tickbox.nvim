@@ -1,6 +1,7 @@
 -- The task and heading hierarchy of a buffer. `build` is pure; `get` caches it per
 -- buffer change, so every redraw of a tick shares one parse.
 local parse = require("tickbox.parse")
+local state = require("tickbox.state")
 
 local M = {}
 
@@ -74,8 +75,8 @@ function M.build(lines)
           end
           tasks[lnum] = task
 
-          if task.state ~= "cancelled" then
-            local checked = task.state == "checked"
+          if state.counts(task.state) then
+            local checked = state.is_done(task.state)
             for _, open in ipairs(open_tasks) do
               tally(open.lnum, checked)
             end

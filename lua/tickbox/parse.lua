@@ -1,11 +1,18 @@
 -- Pure markdown task parsing. No Neovim API, so it stays testable without a buffer.
+local state = require("tickbox.state")
+
 local M = {}
 
-local states = { [" "] = "unchecked", ["/"] = "in_progress", x = "checked", X = "checked", ["-"] = "cancelled" }
+-- A pattern set of every interior character that reads as a state.
+local interior_set = ""
+for char in pairs(state.of_interior) do
+  interior_set = interior_set .. (char:match("%w") and char or "%" .. char)
+end
+local task_pattern = "^ +()%[([" .. interior_set .. "])%] "
 
 -- Returns nil when the line is not a GFM task item, otherwise a table with
--- `state` ("unchecked" | "in_progress" | "checked" | "cancelled"), `ordered` (a
--- numbered marker) and 0-indexed, end-exclusive byte ranges:
+-- `state` (a name from `state.order`), `ordered` (a numbered marker) and 0-indexed,
+-- end-exclusive byte ranges:
 -- `prefix_*` covers the marker through the closing bracket, `interior_*` the
 -- single character between the brackets. Does not know about fences; pair it with
 -- `fenced`.
@@ -16,12 +23,12 @@ function M.classify(line)
   if not after_marker then
     return nil
   end
-  local bracket, interior = line:match("^ +()%[([ xX/-])%] ", after_marker)
+  local bracket, interior = line:match(task_pattern, after_marker)
   if not bracket then
     return nil
   end
   return {
-    state = states[interior],
+    state = state.of_interior[interior],
     ordered = after_bullet == nil,
     prefix_start = marker - 1,
     prefix_end = bracket + 2,
