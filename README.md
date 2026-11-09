@@ -1,5 +1,10 @@
 # tickbox.nvim
 
+Yet another to-do plugin for Neovim, kept to one job: tick, untick or mark a
+task in progress, and see a small done/total summary. It extends your markdown
+workflow without getting in its way, touching only task lists, so links draw
+and headings fold only where there are tasks.
+
 Checkboxes for the task lists in your markdown notes. `- [ ]` draws as a box,
 `- [x]` as a ticked box, and one key toggles the task under the cursor.
 
