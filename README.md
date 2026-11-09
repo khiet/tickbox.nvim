@@ -171,69 +171,8 @@ vim.api.nvim_create_autocmd("FileType", {
 | `enable(buf?)` | Clear `disable`. A filetype that is not configured still does not render |
 | `disable(buf?)` | Stop rendering the buffer |
 | `is_enabled(buf?)` | Whether the buffer renders: its filetype is configured and it is not disabled |
-| `tasks(buf?)` | The buffer's tasks, in line order, with their [inline fields](#inline-fields). Read-only; works on any loaded buffer whatever its filetype |
 
 `buf` defaults to the current buffer. The same reference lives in `:help tickbox`.
-
-Each entry `tasks()` returns has:
-
-| Key | Meaning |
-| --- | --- |
-| `lnum` | 1-indexed line number |
-| `state` | `"unchecked"`, `"in_progress"`, `"checked"` or `"cancelled"` |
-| `text` | Task text after the box, with field tokens removed and whitespace trimmed |
-| `fields` | Table of key to value; empty when there are none |
-| `indent` | Display column of the marker |
-| `parent` | Index of the parent task in the returned list, or `nil` |
-
-Fenced lines are skipped. An invalid buffer raises an error, as `disable` does.
-
-## Recipes
-
-### Task table
-
-`tasks()` returns data, so views live in your config. This adds `:TaskTable`, which lists the current buffer's tasks in a float with aligned columns for the state, the fields you name and the text. `<CR>` jumps to the task in the source window:
-
-```lua
-local icons = { unchecked = "󰄱", in_progress = "󰡖", checked = "󰱒", cancelled = "󰅗" }
-vim.api.nvim_create_user_command("TaskTable", function()
-  local keys = { "priority", "repo" } -- the fields to show, as columns
-  local source = vim.api.nvim_get_current_win()
-  local tasks = require("tickbox").tasks()
-  local rows, widths = {}, {}
-  for i, task in ipairs(tasks) do
-    rows[i] = { icons[task.state] }
-    for _, key in ipairs(keys) do
-      table.insert(rows[i], task.fields[key] or "")
-    end
-    table.insert(rows[i], task.text)
-    for j, cell in ipairs(rows[i]) do
-      widths[j] = math.max(widths[j] or 0, vim.fn.strdisplaywidth(cell))
-    end
-  end
-  local lines, width = {}, 1
-  for i, row in ipairs(rows) do
-    for j = 1, #row - 1 do
-      row[j] = row[j] .. string.rep(" ", widths[j] - vim.fn.strdisplaywidth(row[j]))
-    end
-    lines[i] = table.concat(row, "  ")
-    width = math.max(width, vim.fn.strdisplaywidth(lines[i]))
-  end
-  local buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-  vim.bo[buf].bufhidden, vim.bo[buf].modifiable = "wipe", false
-  local win = vim.api.nvim_open_win(buf, true, { relative = "editor", row = 1, col = 2,
-    width = math.min(width, vim.o.columns - 4), height = math.max(#lines, 1), border = "rounded" })
-  vim.keymap.set("n", "<CR>", function()
-    local task = tasks[vim.api.nvim_win_get_cursor(0)[1]]
-    vim.api.nvim_win_close(win, true)
-    if task then
-      vim.api.nvim_set_current_win(source)
-      vim.api.nvim_win_set_cursor(source, { task.lnum, 0 })
-    end
-  end, { buffer = buf })
-end, {})
-```
 
 ## Highlights
 
@@ -268,19 +207,6 @@ Lines inside ``` or ~~~ fences are left alone. Fence matching is deliberately si
 - The end of a list item does not close its fence.
 
 In insert and replace mode the cursor line shows its raw text, so the overlay never covers what you are editing.
-
-### Inline fields
-
-A task can carry fields in the [Dataview](https://blacksmithgu.github.io/obsidian-dataview/) syntax `[key:: value]`, so the file stays readable by Dataview and tasks.nvim:
-
-```markdown
-- [ ] FUS-1136 Carry the package on secondary insurances [priority:: high] [repo:: FBA + FA]
-```
-
-- The key is letters, digits, `_` and `-`, kept as written. The value is everything after `::` up to the next `]`, trimmed.
-- A field can sit anywhere in the text. A repeated key keeps the last value.
-- `[priority:high]` (one colon) and `[ :: x]` (no key) are plain text.
-- Fields are not highlighted or hidden; only `tasks()` reads them.
 
 ## Alternatives
 
