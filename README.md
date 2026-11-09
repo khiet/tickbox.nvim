@@ -60,16 +60,18 @@ Then:
 3. Press `<leader>t` to tick it, or `<leader>c` to walk it through to do, in progress, done and cancelled.
 
 <details>
-<summary>vim.pack (Neovim 0.12+)</summary>
+<summary>vim.pack and other plugin managers</summary>
+
+With vim.pack (Neovim 0.12+):
 
 ```lua
 vim.pack.add({ "https://github.com/khiet/tickbox.nvim" })
 vim.keymap.set({ "n", "x" }, "<leader>t", "<Plug>(tickbox-toggle)")
 ```
 
-</details>
-
 Any other plugin manager, or `packadd`, works too: the plugin attaches itself on `FileType`, and calling `setup` is optional.
+
+</details>
 
 ## Configuration
 
@@ -163,7 +165,7 @@ vim.api.nvim_create_autocmd("FileType", {
 })
 ```
 
-A buffer-local `<CR>` hides a completion plugin's global one. If yours confirms with `<CR>`, see [Recipes](#recipes).
+If your completion plugin confirms with `<CR>`, see [Recipes](#recipes) before binding it.
 
 ## API
 
