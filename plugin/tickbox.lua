@@ -57,7 +57,7 @@ vim.keymap.set("n", "<Plug>(tickbox-open-above)", function()
 end, { expr = true, desc = "Open a line above, continuing a task list" })
 
 -- Without a range, both ends default to the cursor line, which in a closed fold means the
--- line seen there: the fold's first. A given range is taken at its word.
+-- line seen there: the fold's first. A given range stays as Vim resolved it.
 local function command_range(args)
   local closed = args.range == 0 and vim.fn.foldclosed(args.line1) or -1
   if closed ~= -1 then
