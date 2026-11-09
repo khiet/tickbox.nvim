@@ -1,3 +1,4 @@
+local buffers = require("tickbox.buffers")
 local render = require("tickbox.render")
 local state = require("tickbox.state")
 local toggle = require("tickbox.toggle")
@@ -27,7 +28,8 @@ function M.setup(opts)
   if vim.fn.has("nvim-0.10") == 0 then
     error("tickbox.nvim requires Neovim 0.10 or later", 0)
   end
-  render.start(vim.tbl_deep_extend("force", defaults, opts or {}))
+  buffers.setup(vim.tbl_deep_extend("force", defaults, opts or {}))
+  render.start()
   started = true
 end
 
@@ -39,9 +41,9 @@ function M._ensure_started()
   end
 end
 
-M.enable = render.enable
-M.disable = render.disable
-M.is_enabled = render.is_enabled
+M.enable = buffers.enable
+M.disable = buffers.disable
+M.is_enabled = buffers.is_enabled
 M.toggle = toggle.toggle
 M.toggle_range = toggle.toggle_range
 M.cycle = toggle.cycle

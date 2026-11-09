@@ -1,5 +1,5 @@
+local buffers = require("tickbox.buffers")
 local plan = require("tickbox.plan")
-local render = require("tickbox.render")
 local state = require("tickbox.state")
 local tree = require("tickbox.tree")
 
@@ -23,11 +23,11 @@ end
 -- describes. The buffer is read once, before any edit, and one apply step writes every
 -- edit of the call, so all of them share one undo step.
 local function rewrite_range(transition, first, last)
-  if not vim.bo.modifiable or not render.is_attached() then
+  if not buffers.may_edit() then
     return false
   end
   local tasks = tree.get(0).tasks
-  local edits = plan.edits(tasks, first, math.min(last, vim.api.nvim_buf_line_count(0)), transition, render.options())
+  local edits = plan.edits(tasks, first, math.min(last, vim.api.nvim_buf_line_count(0)), transition, buffers.options())
   return apply(tasks, edits)
 end
 

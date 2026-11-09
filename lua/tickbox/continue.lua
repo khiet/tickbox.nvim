@@ -2,7 +2,7 @@
 -- mapping: the plain key off a task line, or a <Cmd> that writes the new line through
 -- the API on one. Writing the whole line replaces any leader 'formatoptions' inserted, so
 -- a plugin that continues lists itself cannot double the marker.
-local render = require("tickbox.render")
+local buffers = require("tickbox.buffers")
 local tree = require("tickbox.tree")
 
 local M = {}
@@ -11,7 +11,7 @@ local M = {}
 -- an ordered task, fenced, in a filetype that is not configured, or not modifiable.
 -- Like toggling, this ignores `disable`.
 local function cursor_task()
-  if not vim.bo.modifiable or not render.is_attached() then
+  if not buffers.may_edit() then
     return nil
   end
   local task = tree.get(0).tasks[vim.api.nvim_win_get_cursor(0)[1]]
