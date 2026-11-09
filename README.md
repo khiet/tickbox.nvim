@@ -1,21 +1,43 @@
 # tickbox.nvim
 
-Render and toggle GitHub-style task lists in markdown.
+Checkboxes for the task lists in your markdown notes. `- [ ]` draws as a box,
+`- [x]` as a ticked box, and one key toggles the task under the cursor.
+
+Everything else in the buffer stays as you wrote it: no treesitter, no
+`conceallevel`, no default keymaps. If you already render whole documents with
+[render-markdown.nvim](https://github.com/MeanderingProgrammer/render-markdown.nvim)
+or [markview.nvim](https://github.com/OXY2DEV/markview.nvim), they draw
+checkboxes too and you do not need this. tickbox is for people who want the
+boxes and nothing else.
+
+![tickbox toggling, cycling and folding a task list](assets/demo.gif)
 
 ## Features
 
-- `- [ ] task` renders as a hollow box and `- [x] task` as a ticked box, with `[/]` for in progress and `[-]` for cancelled. Nothing else in the buffer changes.
-- One mapping toggles the task under the cursor, or every task in a visual selection, and another cycles it through the four states.
-- Optional mappings for `<CR>`, `o` and `O` start the next task as `- [ ] `.
-- Optional `done/total` counts on parent tasks and headings, and optional auto-checking of a parent once its children are done.
+- Boxes for `[ ]`, `[/]`, `[x]` and `[-]`: to do, in progress, done, cancelled.
+- Toggle or cycle the task under the cursor, or every task in a selection. `.` repeats.
+- `<CR>`, `o` and `O` can start the next task for you.
+- `done/total` counts on parent tasks and headings.
+- Parents tick themselves once every child is done.
+- Headings with tasks fold, with native `za`, `zM` and `zR`.
 - No treesitter, no `conceallevel`, no default keymaps.
+
+To see all of it at once:
+
+```lua
+opts = { progress = true, auto_check_parent = true, fold = true }
+```
 
 ## Requirements
 
-- Neovim 0.10 or later
-- A [Nerd Font](https://www.nerdfonts.com) for the default icons, or set Unicode ones in [Configuration](#configuration)
+- Neovim 0.10 or later. Below that, `setup` raises an error naming the minimum version.
+- A [Nerd Font](https://www.nerdfonts.com) for the default icons. Without one, use Unicode icons instead:
 
-## Installation
+```lua
+opts = { icons = { unchecked = "☐", in_progress = "◐", checked = "☑", cancelled = "☒" } }
+```
+
+## Quickstart
 
 With [lazy.nvim](https://github.com/folke/lazy.nvim):
 
@@ -26,11 +48,16 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim):
   opts = {},
   keys = {
     { "<leader>t", "<Plug>(tickbox-toggle)", mode = { "n", "x" }, ft = "markdown", desc = "Toggle task" },
+    { "<leader>c", "<Plug>(tickbox-cycle)",  mode = { "n", "x" }, ft = "markdown", desc = "Cycle task state" },
   },
 }
 ```
 
-Extra `filetypes` also need listing in both `ft` fields, or the plugin stays unloaded and unmapped there.
+Then:
+
+1. Open any markdown file and type `- [ ] buy milk`.
+2. Leave insert mode. The `[ ]` draws as a box.
+3. Press `<leader>t` to tick it, or `<leader>c` to walk it through to do, in progress, done and cancelled.
 
 <details>
 <summary>vim.pack (Neovim 0.12+)</summary>
@@ -63,11 +90,12 @@ require("tickbox").setup({
 })
 ```
 
+- `filetypes`: with lazy.nvim, extra filetypes also need listing in both `ft` fields of the plugin spec, or the plugin stays unloaded and unmapped there.
 - `progress`: every parent task and heading with at least one counted task shows `done/total` at the end of its line, in `TickboxProgress`. See [Progress and parents](#progress-and-parents).
 - `auto_check_parent`: after a toggle, cycle or set, an ancestor whose counted descendants are all checked becomes `[x]`, and a checked ancestor with a descendant that is not becomes `[ ]`.
 - `fold`: headings that have tasks fold in attached buffers. Off, the plugin leaves every fold option untouched. See [Folding](#folding).
 
-Each call starts from the defaults rather than the previous call's options. Below Neovim 0.10 it raises an error naming the minimum version. Without a Nerd Font, try `icons = { unchecked = "☐", in_progress = "◐", checked = "☑", cancelled = "☒" }`.
+Each call starts from the defaults rather than the previous call's options.
 
 ## Usage
 
@@ -84,22 +112,11 @@ Toggling is a done/not-done switch: a checked task becomes `[ ]` and every other
 
 ### Progress and parents
 
-- A task's descendants are the task lines after it with a greater indentation, up to the first non-blank line indented the same or less. Blank lines and deeper non-task lines do not end them. A tab counts to the next multiple of four columns.
-- A heading (`#` to `######`) holds every task until the next heading of the same or a higher level, so `## A` includes the tasks under a `### B` inside it.
-- Counts cover all descendants, not only direct children. `done` is checked tasks and `total` is unchecked, in-progress and checked ones; cancelled tasks are left out, and a total of 0 shows nothing.
-- With `auto_check_parent`, the change walks up through every ancestor. It never changes a task's descendants, never touches a cancelled ancestor, and never uses headings. A toggle, cycle or set and the parents it updates are one undo step, and a range updates parents once after all its edits, leaving the tasks in the range as the range set them.
-- Fenced lines are ignored, and counts follow `:Tickbox disable` and `enable` like the icons. They stay visible on the line being typed.
+With `progress = true`, every parent task and heading shows `done/total` for the tasks under it. Cancelled tasks are not counted. With `auto_check_parent = true`, ticking the last child ticks the parent, and unticking a child unticks it again, in the same undo step. Nesting follows indentation: a task's descendants are the task lines below it with greater indentation, and a heading holds every task up to the next heading of the same or a higher level. Full rules: `:h tickbox-progress`.
 
 ### Folding
 
-`fold = true` sets `foldmethod`, `foldexpr`, `foldtext` and `foldlevel` on attached buffers. Folds start open, and there are no new keymaps: native `za`, `zc`, `zM` and `zR` work.
-
-- A heading folds if it has at least one task under it, by the rules above, including one with only cancelled tasks. Nested headings fold too. A heading with no tasks has no fold of its own, and folds with its parent if it has one.
-- A fold runs from the heading through the line before the next heading of the same or a higher level, prose and trailing blank lines included. Fenced lines are ignored, and only `#` to `######` headings fold.
-- Folds follow edits: the first task under a heading makes it foldable, and removing its last task removes the fold, without closing anything you closed.
-- A closed heading shows its own text and highlighting rather than a fold summary, followed by its count when `progress` is on. The rest of the line takes the `fold` item of `fillchars`.
-- A toggle, cycle or set with the cursor on a closed heading does nothing and returns `false`, as on any non-task line. A visual selection over a closed fold acts on the tasks in it.
-- `:Tickbox disable` keeps folds, because it only stops drawing. The count disappears with the other rendering.
+With `fold = true`, headings that have tasks under them fold with the native `za`, `zc`, `zM` and `zR`. It sets `foldmethod`, `foldexpr`, `foldtext` and `foldlevel` on attached buffers, and folds start open. A closed heading keeps its own text and highlighting and, with `progress`, its count; the rest of the line takes the `fold` item of `fillchars`. Full rules: `:h tickbox-fold`.
 
 ### Commands
 
@@ -146,33 +163,7 @@ vim.api.nvim_create_autocmd("FileType", {
 })
 ```
 
-A buffer-local `<CR>` hides a completion plugin's global one. If yours confirms with `<CR>`, check its menu first. For nvim-cmp, use this in place of the `<CR>` line in the callback above:
-
-```lua
-vim.keymap.set("i", "<CR>", function()
-  if require("cmp").visible() then
-    return "<Cmd>lua require('cmp').confirm()<CR>"
-  end
-  return "<Plug>(tickbox-newline)"
-end, { buffer = args.buf, expr = true, remap = true })
-```
-
-### Fallback recipe
-
-`toggle()` returns `false` when it did nothing, so a mapping can do something else on other lines. This maps `<leader><leader>` to toggle on a task line and otherwise switch to the alternate buffer with `<C-^>`, if there is one. Calling `toggle()` directly means `.` does not repeat it:
-
-```lua
-vim.api.nvim_create_autocmd("FileType", {
-  pattern = "markdown",
-  callback = function(args)
-    vim.keymap.set("n", "<leader><leader>", function()
-      if not require("tickbox").toggle() and vim.fn.bufnr("#") ~= -1 then
-        vim.cmd.normal({ vim.keycode("<C-^>"), bang = true })
-      end
-    end, { buffer = args.buf })
-  end,
-})
-```
+A buffer-local `<CR>` hides a completion plugin's global one. If yours confirms with `<CR>`, see [Recipes](#recipes).
 
 ## API
 
@@ -215,19 +206,39 @@ A `link` overrides every other attribute, so `{ strikethrough = true, link = "Co
 
 ## Task syntax
 
-A task is a line with optional indentation, a marker (`-`, `*`, `+`, or digits followed by `.` or `)`), spaces, `[ ]`, `[/]`, `[x]`, `[X]` or `[-]`, and then at least one space. So `- [ ]x` and a line ending in `- [ ]` stay raw.
+A task is a line with optional indentation, a list marker (`-`, `*`, `+`, or digits followed by `.` or `)`), spaces, `[ ]`, `[/]`, `[x]`, `[X]` or `[-]`, and then at least one space. So `- [ ]x` and a line ending in `- [ ]` stay raw. Lines inside ``` or ~~~ fences are left alone, and in insert and replace mode the cursor line shows its raw text, so the overlay never covers what you are editing. Full rules, including how fences are matched: `:h tickbox-tasks`.
 
-Lines inside ``` or ~~~ fences are left alone. Fence matching is deliberately simpler than CommonMark:
+## Recipes
 
-- An opening fence at any indentation counts, so indented code holding a bare ``` opens a fence.
-- A fence may open right after a list marker, as in `` - ``` ``. A line that starts with a marker never closes a fence.
-- The end of a list item does not close its fence.
+### Completion plugins and `<CR>`
 
-In insert and replace mode the cursor line shows its raw text, so the overlay never covers what you are editing.
+A buffer-local `<CR>` hides a completion plugin's global one. If yours confirms with `<CR>`, check its menu first. For nvim-cmp, use this in place of the `<CR>` line in the [Continuing a list](#continuing-a-list) callback:
 
-## Alternatives
+```lua
+vim.keymap.set("i", "<CR>", function()
+  if require("cmp").visible() then
+    return "<Cmd>lua require('cmp').confirm()<CR>"
+  end
+  return "<Plug>(tickbox-newline)"
+end, { buffer = args.buf, expr = true, remap = true })
+```
 
-- [render-markdown.nvim](https://github.com/MeanderingProgrammer/render-markdown.nvim) and [markview.nvim](https://github.com/OXY2DEV/markview.nvim) render the whole markdown document, checkboxes included. Pick one of them for full rendering; pick tickbox for task lists alone, without treesitter.
+### Toggle or switch buffer
+
+`toggle()` returns `false` when it did nothing, so a mapping can do something else on other lines. This maps `<leader><leader>` to toggle on a task line and otherwise switch to the alternate buffer with `<C-^>`, if there is one. Calling `toggle()` directly means `.` does not repeat it:
+
+```lua
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "markdown",
+  callback = function(args)
+    vim.keymap.set("n", "<leader><leader>", function()
+      if not require("tickbox").toggle() and vim.fn.bufnr("#") ~= -1 then
+        vim.cmd.normal({ vim.keycode("<C-^>"), bang = true })
+      end
+    end, { buffer = args.buf })
+  end,
+})
+```
 
 ## Contributing
 
@@ -237,6 +248,8 @@ In insert and replace mode the cursor line shows its raw text, so the overlay ne
 git clone https://github.com/nvim-lua/plenary.nvim /path/to/plenary.nvim
 make test PLENARY_DIR=/path/to/plenary.nvim
 ```
+
+The demo at the top is recorded with [vhs](https://github.com/charmbracelet/vhs) from `assets/demo.tape`; run `vhs assets/demo.tape` after a visible change.
 
 ## License
 

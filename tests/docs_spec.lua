@@ -99,6 +99,76 @@ describe("docs", function()
     assert.is_truthy(read("README.md"):find('ft = "markdown"', 1, true))
   end)
 
+  -- The README is read top to bottom by someone deciding whether to install, so its
+  -- order is part of the contract: picture, pitch and quickstart first, rules last.
+  describe("README for first-time visitors", function()
+    local readme
+
+    -- Byte offset of a heading line, so tests can say "between X and Y".
+    local function heading(text)
+      local at = readme:find("\n" .. text .. "\n", 1, true)
+      assert.is_truthy(at, "heading " .. text)
+      return at
+    end
+
+    local function between(term, first, last)
+      local at = readme:find(term, heading(first), true)
+      assert.is_truthy(at, term .. " after " .. first)
+      assert.is_true(at < heading(last), term .. " before " .. last)
+    end
+
+    before_each(function()
+      readme = read("README.md")
+    end)
+
+    it("embeds the demo recording before the first section", function()
+      local at = readme:find("](assets/demo.gif)", 1, true)
+      assert.is_truthy(at)
+      assert.is_true(at < readme:find("\n## ", 1, true))
+    end)
+
+    it("ships the tape that renders the recording", function()
+      local tape = read("assets/demo.tape")
+      assert.is_truthy(tape:find("Output assets/demo.gif", 1, true))
+      assert.is_truthy(tape:find("Nerd Font", 1, true))
+    end)
+
+    it("names the full-rendering plugins in the intro and has no Alternatives section", function()
+      local first_section = readme:find("\n## ", 1, true)
+      assert.is_true(readme:find("render-markdown.nvim", 1, true) < first_section)
+      assert.is_true(readme:find("markview.nvim", 1, true) < first_section)
+      assert.is_nil(readme:find("\n## Alternatives", 1, true))
+    end)
+
+    it("binds toggle and cycle in the quickstart and follows it with Try it steps", function()
+      between("<Plug>(tickbox-toggle)", "## Quickstart", "## Configuration")
+      between("<Plug>(tickbox-cycle)", "## Quickstart", "## Configuration")
+      between("1. Open any markdown file", "## Quickstart", "## Configuration")
+    end)
+
+    it("puts the Unicode icons in Requirements and the filetypes caveat in Configuration", function()
+      between('unchecked = "☐"', "## Requirements", "## Quickstart")
+      between("both `ft` fields", "## Configuration", "## Usage")
+    end)
+
+    it("lists folding in Features and shows every option on", function()
+      between("fold", "## Features", "## Requirements")
+      between("opts = { progress = true, auto_check_parent = true, fold = true }", "## Features", "## Requirements")
+    end)
+
+    it("points each shortened rules section at the help file", function()
+      between("`:h tickbox-progress`", "### Progress and parents", "### Folding")
+      between("`:h tickbox-fold`", "### Folding", "### Commands")
+      between("`:h tickbox-tasks`", "## Task syntax", "## Recipes")
+    end)
+
+    it("ends with Recipes before Contributing", function()
+      between('require("cmp").visible()', "## Recipes", "## Contributing")
+      between("<leader><leader>", "## Recipes", "## Contributing")
+      assert.is_true(heading("## Highlights") < heading("## Recipes"))
+    end)
+  end)
+
   describe(":help", function()
     before_each(function()
       vim.cmd("helptags doc")
@@ -129,6 +199,7 @@ describe("docs", function()
       "tickbox-states",
       "tickbox-progress",
       "tickbox-fold",
+      "tickbox-tasks",
       "TickboxProgress",
     }) do
       it("opens the doc for " .. tag, function()
