@@ -21,8 +21,7 @@ local function cursor_task()
   return vim.api.nvim_get_current_line(), task
 end
 
--- The new line's prefix, such as "  - [ ] ": the indentation and marker that open the
--- task's prefix range, then an unchecked box. The marker is one character because
+-- The new line's prefix, such as "  - [ ] ". The marker is one character because
 -- ordered tasks never get here.
 local function prefix(line, task)
   return line:sub(1, task.prefix_start + 1) .. " [ ] "

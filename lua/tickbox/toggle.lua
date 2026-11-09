@@ -15,8 +15,7 @@ for _, name in ipairs(state.order) do
   cycled[name] = state.states[name].successor
 end
 
--- Writes `name` into the task's interior. The buffer line changes but its number does
--- not, so a tree built before the edit still locates every task.
+-- The edit stays within the line, so a tree built before it still locates every task.
 local function write_state(task, name)
   local row = task.lnum - 1
   vim.api.nvim_buf_set_text(0, row, task.interior_start, row, task.interior_end, { interior_of(name) })
