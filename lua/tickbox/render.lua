@@ -61,6 +61,10 @@ local function define_highlights()
   -- Empty so done text looks unchanged until the user defines it.
   vim.api.nvim_set_hl(0, "TickboxCheckedText", { default = true })
   vim.api.nvim_set_hl(0, "TickboxProgress", { link = "Comment", default = true })
+  -- Internal, so not `default`. Treesitter reads `[/]` and `[-]` as links, not task
+  -- markers, and hl_mode "combine" would keep their underline under the padding.
+  -- nocombine drops inherited attributes while a cursorline background still shows.
+  vim.api.nvim_set_hl(0, "TickboxPadding", { nocombine = true })
 end
 
 local function draw_progress(buf, row)
@@ -90,7 +94,7 @@ local function draw(buf, row)
     ephemeral = true,
     virt_text = {
       { icon, state.states[task.state].highlight },
-      { string.rep(" ", math.max(padding, 0)) },
+      { string.rep(" ", math.max(padding, 0)), "TickboxPadding" },
     },
     virt_text_pos = "overlay",
     -- Otherwise a horizontally scrolled line keeps the glyph at the window edge,
@@ -146,6 +150,12 @@ function M.start()
   define_highlights()
 
   vim.api.nvim_clear_autocmds({ group = group })
+  -- A colorscheme's `hi clear` restores only default links, which would lose
+  -- TickboxPadding and bring back the underline it hides.
+  vim.api.nvim_create_autocmd("ColorScheme", {
+    group = group,
+    callback = define_highlights,
+  })
   vim.api.nvim_create_autocmd("FileType", {
     group = group,
     callback = function(args)
