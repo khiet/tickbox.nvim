@@ -67,7 +67,7 @@ Defaults: >lua
                 line with at least one counted task, in |TickboxProgress|.
                 See |tickbox-progress|.
     auto_check_parent
-                After a toggle or cycle, check an ancestor whose counted
+                After a toggle, cycle or set, check an ancestor whose counted
                 descendants are all checked, and uncheck a checked ancestor
                 with a descendant that is not. See |tickbox-progress|.
 
@@ -85,7 +85,9 @@ TASK STATES                                                   *tickbox-states*
 
 Toggling is a done/not-done switch: a checked task becomes `[ ]` and every
 other task becomes `[x]`. Cycling walks `[ ]`, `[/]`, `[x]`, `[-]` and back to
-`[ ]`; `[X]` cycles as checked.
+`[ ]`; `[X]` cycles as checked. Setting goes straight to the state you name
+and is not a toggle: a task already in that state is left alone, and `[X]`
+stays as written when set to `checked`.
 
 ==============================================================================
 PROGRESS AND PARENTS                                        *tickbox-progress*
@@ -109,8 +111,8 @@ typed.
 
 With `auto_check_parent`, the change walks up through every ancestor. It never
 changes a task's descendants, never touches a cancelled ancestor, and never
-uses headings. A toggle or cycle and the parents it updates are one undo step,
-and a range updates parents once after all its edits.
+uses headings. A toggle, cycle or set and the parents it updates are one undo
+step, and a range updates parents once after all its edits.
 
 Fenced lines are ignored, as everywhere else.
 
@@ -125,24 +127,37 @@ COMMANDS                                         *tickbox-commands* *:Tickbox*
     Cycle the cursor line, or every task in a range, such as
     `:'<,'>Tickbox cycle`.
 
+`:Tickbox set` {state}
+    Set the cursor line, or every task in a range, such as
+    `:'<,'>Tickbox set cancelled`. {state} is `unchecked`, `in_progress`,
+    `checked` or `cancelled`.
+
 `:Tickbox enable`
     Render the current buffer again.
 
 `:Tickbox disable`
     Show the raw markdown of the current buffer, until `:Tickbox enable` or
-    the buffer is wiped. Toggling and cycling keep working while rendering
-    is disabled.
+    the buffer is wiped. Toggling, cycling and setting keep working while
+    rendering is disabled.
 
 ==============================================================================
 MAPPING                                                      *tickbox-mapping*
                                                       *<Plug>(tickbox-toggle)*
                                                        *<Plug>(tickbox-cycle)*
+                                               *<Plug>(tickbox-set-unchecked)*
+                                             *<Plug>(tickbox-set-in-progress)*
+                                                 *<Plug>(tickbox-set-checked)*
+                                               *<Plug>(tickbox-set-cancelled)*
 
-The plugin ships no default keymap. <Plug>(tickbox-toggle) and
-<Plug>(tickbox-cycle) work in normal mode, where |.| repeats them, and in
-visual mode, where they act on every selected task as one undo step: >lua
+The plugin ships no default keymap. <Plug>(tickbox-toggle),
+<Plug>(tickbox-cycle), <Plug>(tickbox-set-unchecked),
+<Plug>(tickbox-set-in-progress), <Plug>(tickbox-set-checked) and
+<Plug>(tickbox-set-cancelled) work in normal mode, where |.| repeats them, and
+in visual mode, where they act on every selected task as one undo step: >lua
     vim.keymap.set({ "n", "x" }, "<leader>t", "<Plug>(tickbox-toggle)")
     vim.keymap.set({ "n", "x" }, "<leader>c", "<Plug>(tickbox-cycle)")
+    vim.keymap.set({ "n", "x" }, "<leader>p",
+      "<Plug>(tickbox-set-in-progress)")
 <
                                                      *tickbox-fallback-recipe*
 `toggle()` returns false when it did nothing, so a mapping can do something
@@ -226,6 +241,17 @@ cycle()                                                      *tickbox.cycle()*
 cycle_range({first}, {last})                           *tickbox.cycle_range()*
     Cycle every task on these lines as one undo step. Returns what
     |tickbox.toggle_range()| would.
+
+set({state})                                                   *tickbox.set()*
+    Set the cursor line to "unchecked", "in_progress", "checked" or
+    "cancelled". Returns true if it edited the line, false if the task is
+    already in that state or in the cases where |tickbox.toggle()| returns
+    false. Raises an error on an unknown state.
+
+set_range({state}, {first}, {last})                      *tickbox.set_range()*
+    Set every task on these lines as one undo step. Tasks already in the state
+    are left alone. Returns true if any line changed. Raises an error on an
+    unknown state.
 
 enable({buf})                                               *tickbox.enable()*
     Clear `disable`. A filetype that is not configured still does not render.

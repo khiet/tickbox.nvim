@@ -5,12 +5,14 @@ vim.g.loaded_tickbox = true
 
 require("tickbox")._ensure_started()
 
--- `action` is "toggle" or "cycle"; the mappings call `<action>` and `<action>_range`.
-local function map_action(action, normal_desc, visual_desc)
-  local lhs = ("<Plug>(tickbox-%s)"):format(action)
+-- `operator` names the function in tickbox.toggle that normal mode runs; it is called
+-- with the motion type, so it must take no other arguments. `run_range` acts on the
+-- selected lines in visual mode.
+local function map_action(name, operator, run_range, normal_desc, visual_desc)
+  local lhs = ("<Plug>(tickbox-%s)"):format(name)
   vim.keymap.set("n", lhs, function()
     -- Going through an operator is what lets `.` repeat the action.
-    vim.o.operatorfunc = ("v:lua.require'tickbox.toggle'.%s"):format(action)
+    vim.o.operatorfunc = ("v:lua.require'tickbox.toggle'.%s"):format(operator)
     return "g@l"
   end, { expr = true, silent = true, desc = normal_desc })
 
@@ -19,12 +21,25 @@ local function map_action(action, normal_desc, visual_desc)
     -- Not feedkeys: that would run keys queued behind the mapping, like the rest of a
     -- macro, while still in visual mode.
     vim.cmd.normal({ vim.keycode("<Esc>"), bang = true })
-    require("tickbox")[action .. "_range"](math.min(anchor, cursor), math.max(anchor, cursor))
+    run_range(math.min(anchor, cursor), math.max(anchor, cursor))
   end, { silent = true, desc = visual_desc })
 end
 
-map_action("toggle", "Toggle the task under the cursor", "Toggle every task in the selection")
-map_action("cycle", "Cycle the state of the task under the cursor", "Cycle every task in the selection")
+map_action("toggle", "toggle", function(first, last)
+  require("tickbox").toggle_range(first, last)
+end, "Toggle the task under the cursor", "Toggle every task in the selection")
+map_action("cycle", "cycle", function(first, last)
+  require("tickbox").cycle_range(first, last)
+end, "Cycle the state of the task under the cursor", "Cycle every task in the selection")
+
+local states = { "unchecked", "in_progress", "checked", "cancelled" }
+
+for _, state in ipairs(states) do
+  local label = state:gsub("_", "-")
+  map_action("set-" .. label, "set_" .. state, function(first, last)
+    require("tickbox").set_range(state, first, last)
+  end, ("Set the task under the cursor to %s"):format(label), ("Set every task in the selection to %s"):format(label))
+end
 
 vim.keymap.set("i", "<Plug>(tickbox-newline)", function()
   return require("tickbox.continue").newline()
@@ -55,6 +70,12 @@ local subcommands = {
 }
 
 vim.api.nvim_create_user_command("Tickbox", function(args)
+  -- The state is the rest of the argument, so an extra word makes it an unknown state.
+  local state = args.args == "set" and "" or args.args:match("^set%s+(.+)$")
+  if state then
+    require("tickbox").set_range(state, args.line1, args.line2)
+    return
+  end
   local run = subcommands[args.args]
   if not run then
     error("Tickbox: unknown subcommand: " .. args.args, 0)
@@ -63,13 +84,18 @@ vim.api.nvim_create_user_command("Tickbox", function(args)
 end, {
   nargs = 1,
   range = true,
-  desc = "Toggle or cycle tasks, or enable or disable rendering in this buffer",
+  desc = "Toggle, cycle or set tasks, or enable or disable rendering in this buffer",
   complete = function(lead, line)
-    if line:match("Tickbox%s+%S+%s") then
+    local after_set = line:match("Tickbox%s+set%s+(.*)$")
+    local candidates = { "toggle", "cycle", "set", "enable", "disable" }
+    if after_set then
+      -- Anything past the first word is an extra argument, which takes no completion.
+      candidates = after_set:find("%s") and {} or states
+    elseif line:match("Tickbox%s+%S+%s") then
       return {}
     end
     return vim.tbl_filter(function(name)
       return vim.startswith(name, lead)
-    end, { "toggle", "cycle", "enable", "disable" })
+    end, candidates)
   end,
 })

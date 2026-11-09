@@ -7,6 +7,7 @@ local M = {}
 -- Toggle is a done/not-done switch, so in-progress and cancelled tasks count as not done.
 local toggled = { unchecked = "x", in_progress = "x", checked = " ", cancelled = "x" }
 local cycled = { unchecked = "/", in_progress = "x", checked = "-", cancelled = " " }
+local interiors = { unchecked = " ", in_progress = "/", checked = "x", cancelled = "-" }
 
 -- Brings the ancestors of the tasks on `edited` lines in line with their descendants: an
 -- ancestor whose counted descendants are all checked becomes checked, and a checked one
@@ -77,7 +78,7 @@ local function propagate(edited)
 end
 
 -- Sets each task in the range to `next_interior[task.state]`, with the results
--- `toggle_range` describes.
+-- `toggle_range` describes. A state with no entry is left unedited.
 local function rewrite_range(next_interior, first, last)
   if not vim.bo.modifiable or not render.is_attached() then
     return false
@@ -91,8 +92,10 @@ local function rewrite_range(next_interior, first, last)
     if task then
       local row = lnum - 1
       local interior = next_interior[task.state]
-      vim.api.nvim_buf_set_text(0, row, task.interior_start, row, task.interior_end, { interior })
-      table.insert(edited, lnum)
+      if interior then
+        vim.api.nvim_buf_set_text(0, row, task.interior_start, row, task.interior_end, { interior })
+        table.insert(edited, lnum)
+      end
     end
   end
   if #edited > 0 and render.options().auto_check_parent then
@@ -117,6 +120,21 @@ function M.cycle_range(first, last)
   return rewrite_range(cycled, first, last)
 end
 
+-- Sets each task to `state`, leaving any already in it unedited. Same range and result
+-- as `toggle_range`. Raises on an unknown state, even when no line would change.
+function M.set_range(state, first, last)
+  if not interiors[state] then
+    error("Tickbox: unknown state: " .. tostring(state), 0)
+  end
+  local next_interior = {}
+  for other in pairs(interiors) do
+    if other ~= state then
+      next_interior[other] = interiors[state]
+    end
+  end
+  return rewrite_range(next_interior, first, last)
+end
+
 -- Acts on the cursor line, with the same results as the range form, so a mapping can
 -- fall through to another action on false.
 function M.toggle()
@@ -127,6 +145,19 @@ end
 function M.cycle()
   local lnum = vim.api.nvim_win_get_cursor(0)[1]
   return M.cycle_range(lnum, lnum)
+end
+
+function M.set(state)
+  local lnum = vim.api.nvim_win_get_cursor(0)[1]
+  return M.set_range(state, lnum, lnum)
+end
+
+-- One function per state, because `operatorfunc` can only name a function and passes it
+-- the motion type. Internal to the `<Plug>` mappings, so not re-exported by `tickbox`.
+for state in pairs(interiors) do
+  M["set_" .. state] = function()
+    return M.set(state)
+  end
 end
 
 return M

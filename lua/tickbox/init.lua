@@ -45,5 +45,7 @@ M.toggle = toggle.toggle
 M.toggle_range = toggle.toggle_range
 M.cycle = toggle.cycle
 M.cycle_range = toggle.cycle_range
+M.set = toggle.set
+M.set_range = toggle.set_range
 
 return M
