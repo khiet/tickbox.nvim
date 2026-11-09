@@ -96,4 +96,154 @@ function M.fenced(lines)
   return inside
 end
 
+-- The position past a run of backticks at `pos`, and past the code span it opens if a run
+-- of the same length closes one. An unclosed run is literal text.
+local function skip_backticks(line, pos)
+  local run = #line:match("^`+", pos)
+  local search = pos + run
+  while true do
+    local first, last = line:find("`+", search)
+    if not first then
+      return pos + run
+    end
+    if last - first + 1 == run then
+      return last + 1
+    end
+    search = last + 1
+  end
+end
+
+-- The position of the bracket closing the one at `open`, or nil.
+local function label_close(line, open)
+  local depth, i = 0, open
+  while i <= #line do
+    local char = line:sub(i, i)
+    if char == "\\" then
+      i = i + 2
+    elseif char == "`" then
+      i = skip_backticks(line, i)
+    else
+      if char == "[" then
+        depth = depth + 1
+      elseif char == "]" then
+        depth = depth - 1
+        if depth == 0 then
+          return i
+        end
+      end
+      i = i + 1
+    end
+  end
+end
+
+-- The position past the non-empty destination at `pos`, or nil.
+local function destination_end(line, pos)
+  local angled = line:sub(pos, pos) == "<"
+  local depth, i = 0, angled and pos + 1 or pos
+  while i <= #line do
+    local char = line:sub(i, i)
+    if char == "\\" then
+      i = i + 2
+    elseif angled and char == ">" then
+      return i > pos + 1 and i + 1 or nil
+    elseif angled and char == "<" then
+      return nil
+    elseif not angled and (char:match("%s") or (char == ")" and depth == 0)) then
+      break
+    else
+      depth = depth + (char == "(" and 1 or char == ")" and -1 or 0)
+      i = i + 1
+    end
+  end
+  if angled or depth ~= 0 or i == pos then
+    return nil
+  end
+  return i
+end
+
+local title_closer = { ['"'] = '"', ["'"] = "'", ["("] = ")" }
+
+-- The position past the title opening at `pos`, or nil.
+local function title_end(line, pos)
+  local closer = title_closer[line:sub(pos, pos)]
+  if not closer then
+    return nil
+  end
+  local i = pos + 1
+  while i <= #line do
+    local char = line:sub(i, i)
+    if char == "\\" then
+      i = i + 2
+    elseif char == closer then
+      return i + 1
+    else
+      i = i + 1
+    end
+  end
+end
+
+-- The link or image whose bracket opens at 1-indexed `open`, or nil.
+local function link_at(line, open)
+  local close = label_close(line, open)
+  if not close or line:sub(close + 1, close + 1) ~= "(" then
+    return nil
+  end
+  local dest_end = destination_end(line, line:match("^%s*()", close + 2))
+  if not dest_end then
+    return nil
+  end
+  local after = line:match("^%s*()", dest_end)
+  if after > dest_end and line:sub(after, after) ~= ")" then
+    local past_title = title_end(line, after)
+    if not past_title then
+      return nil
+    end
+    after = line:match("^%s*()", past_title)
+  end
+  if line:sub(after, after) ~= ")" then
+    return nil
+  end
+  return { start = open - 1, label_start = open, label_end = close - 1, stop = after }
+end
+
+-- Returns the inline links `[label](destination)` on `line` at or after 0-indexed byte
+-- `from`, as 0-indexed, end-exclusive ranges: `start` to `stop` covers the whole link and
+-- `label_start` to `label_end` its label. Images, reference links, bare URLs, autolinks,
+-- code spans and links with an empty label or destination are not links here.
+function M.links(line, from)
+  local found = {}
+  if not line:find("](", from + 1, true) then
+    return found
+  end
+  local i = from + 1
+  while i <= #line do
+    local char = line:sub(i, i)
+    if char == "\\" then
+      i = i + 2
+    elseif char == "`" then
+      i = skip_backticks(line, i)
+    elseif char == "<" then
+      -- An autolink binds tighter than brackets.
+      i = line:match("^<%a[%w+.-]*:[^%s<>]*>()", i) or i + 1
+    elseif char == "!" and line:sub(i + 1, i + 1) == "[" then
+      local image = link_at(line, i + 1)
+      i = image and image.stop + 1 or i + 1
+    elseif char == "[" then
+      local link = link_at(line, i)
+      local label = link and line:sub(link.label_start + 1, link.label_end)
+      -- A label holding a link or an image is refused: links cannot nest, so an inner link
+      -- is the real one, and an image stays raw even inside a link.
+      if label and label:find("%S") and not label:find("](", 1, true) then
+        table.insert(found, link)
+        i = link.stop + 1
+      else
+        i = i + 1
+      end
+    else
+      i = i + 1
+    end
+  end
+  return found
+end
+
 return M

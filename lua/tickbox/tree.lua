@@ -81,7 +81,8 @@ end
 -- Returns, for 1-indexed `lines` from the top of the buffer:
 -- `tasks`: by line number, each parse.classify result plus `lnum`, `length` (the line's
 --   byte length), `indent` (its width in columns), `parent` (the line number of the
---   nearest enclosing task, or nil) and `children` (line numbers of direct child tasks).
+--   nearest enclosing task, or nil), `children` (line numbers of direct child tasks) and
+--   `links` (the parse.links result for the text after the prefix).
 -- `counts`: by line number, `{ done, total }` for each task and heading with at least one
 --   counted task under it, by the rule `count` applies.
 -- `folds`: for every line, its 'foldexpr' result as a string.
@@ -121,6 +122,7 @@ function M.build(lines)
           task.length = #line
           task.parent = parent and parent.lnum
           task.children = {}
+          task.links = parse.links(line, task.prefix_end)
           if parent then
             table.insert(parent.children, lnum)
           end

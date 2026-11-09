@@ -3,6 +3,7 @@
 -- and text changes, undo, :e, folds and scrolling are covered by redraws alone.
 local buffers = require("tickbox.buffers")
 local fold = require("tickbox.fold")
+local links = require("tickbox.links")
 local state = require("tickbox.state")
 local tree = require("tickbox.tree")
 
@@ -76,6 +77,8 @@ local function define_highlights()
   -- Empty so done text looks unchanged until the user defines it.
   vim.api.nvim_set_hl(0, "TickboxCheckedText", { default = true })
   vim.api.nvim_set_hl(0, "TickboxProgress", { link = "Comment", default = true })
+  -- Underline reads as a link, where bold would look like **strong**.
+  vim.api.nvim_set_hl(0, "TickboxLink", { link = "Underlined", default = true })
   -- Internal, so not `default`. Treesitter reads `[/]` and `[-]` as links, not task
   -- markers, and hl_mode "combine" would keep their underline under the padding.
   -- nocombine drops inherited attributes while a cursorline background still shows.
@@ -106,7 +109,30 @@ local function draw_progress(win, buf, row)
   vim.api.nvim_buf_set_extmark(buf, ns, row, 0, mark)
 end
 
-local function draw(buf, row)
+local function draw_links(win, buf, row, task)
+  if #task.links == 0 or not links.draws(win, buf) then
+    return
+  end
+  for _, link in ipairs(task.links) do
+    for _, hidden in ipairs({
+      { link.start, link.label_start },
+      { link.label_end, link.stop },
+    }) do
+      vim.api.nvim_buf_set_extmark(buf, ns, row, hidden[1], {
+        ephemeral = true,
+        end_col = hidden[2],
+        conceal = "",
+      })
+    end
+    vim.api.nvim_buf_set_extmark(buf, ns, row, link.label_start, {
+      ephemeral = true,
+      end_col = link.label_end,
+      hl_group = "TickboxLink",
+    })
+  end
+end
+
+local function draw(win, buf, row)
   -- A fence can open anywhere above the viewport, so the task needs the whole buffer;
   -- the tree caches that per buffer change rather than per redraw.
   local task = tree.get(buf).tasks[row + 1]
@@ -140,13 +166,29 @@ local function draw(buf, row)
       hl_group = "TickboxCheckedText",
     })
   end
+
+  draw_links(win, buf, row, task)
 end
 
 -- nvim__redraw is experimental, but nothing public repaints a single line and it is
 -- what lets a mode change avoid repainting the whole window.
+--
+-- In a window with 'conceallevel' above 0, a repaint during the mode change leaves the
+-- cursor at its concealed column on the raw line until the next move, so it waits until
+-- the mode change is over.
 local function repaint(target)
-  if target and vim.api.nvim_buf_is_valid(target.buf) then
-    vim.api.nvim__redraw({ buf = target.buf, range = { target.row, target.row + 1 } })
+  if not target then
+    return
+  end
+  local function redraw()
+    if vim.api.nvim_buf_is_valid(target.buf) then
+      vim.api.nvim__redraw({ buf = target.buf, range = { target.row, target.row + 1 } })
+    end
+  end
+  if vim.api.nvim_win_is_valid(target.win) and vim.wo[target.win].conceallevel > 0 then
+    vim.schedule(redraw)
+  else
+    redraw()
   end
 end
 
@@ -210,7 +252,8 @@ function M.start()
   update_revealed()
 
   vim.api.nvim_set_decoration_provider(ns, {
-    on_win = function(_, _, buf)
+    on_win = function(_, win, buf)
+      links.check(win, buf)
       local hl = vim.api.nvim_get_hl(0, { name = "TickboxCheckedText" })
       hl.default = nil
       style_checked_text = next(hl) ~= nil
@@ -222,7 +265,7 @@ function M.start()
         draw_progress(win, buf, row)
       end
       if not (revealed and revealed.win == win and revealed.row == row) then
-        draw(buf, row)
+        draw(win, buf, row)
       end
     end,
   })
