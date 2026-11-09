@@ -68,6 +68,8 @@ describe("set", function()
     h.open({ "- [ ] foo" }, "text")
     assert.is_false(tickbox.set("cancelled"))
     assert.is_false(tickbox.set_range("cancelled", 1, 1))
+    vim.cmd("Tickbox set cancelled")
+    h.type("<Plug>(tickbox-set-cancelled)")
     assert.are.same({ "- [ ] foo" }, lines())
   end)
 
