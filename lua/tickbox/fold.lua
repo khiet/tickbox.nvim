@@ -12,7 +12,7 @@ local group = vim.api.nvim_create_augroup("tickbox_fold", { clear = true })
 local EXPR = "v:lua.require'tickbox.fold'.expr()"
 
 -- Buffers whose levels changed during insert mode. Keyed by buffer number.
-local awaiting_insert_leave = {}
+local awaiting_insert_end = {}
 
 function M.expr()
   return tree.get(0).folds[vim.v.lnum] or "0"
@@ -85,19 +85,26 @@ local function starts_fold(level)
   return level ~= nil and level:sub(1, 1) == ">"
 end
 
--- The lines starting a fold in `new` that did not in `old`. The edit replaced 0-indexed
--- rows `first` up to `last` with rows up to `new_last`, which is how a line is traced back
--- to `old`. A line inside the edit has no earlier self, so it counts as new.
+-- Whether `lnum` in the new text started a fold in `old`. The edit replaced 0-indexed rows
+-- `first` up to `last` with rows up to `new_last`, which traces lines outside it exactly.
+-- A replacement does not say which of its lines moved, so a line inside it is traced from
+-- both ends, which is right unless lines were added both above and below it. A pure
+-- insertion traces nothing, so its lines are new.
+local function started_fold(old, lnum, first, last, new_last)
+  local from_end = lnum - new_last + last
+  if lnum <= first then
+    return starts_fold(old[lnum])
+  elseif lnum > new_last then
+    return starts_fold(old[from_end])
+  end
+  return (lnum <= last and starts_fold(old[lnum])) or (from_end > first and starts_fold(old[from_end]))
+end
+
+-- The lines starting a fold in `new` that did not in `old`.
 local function new_starts(old, new, first, last, new_last)
   local starts = {}
   for lnum, level in ipairs(new) do
-    local before
-    if lnum <= first then
-      before = old[lnum]
-    elseif lnum > new_last then
-      before = old[lnum - new_last + last]
-    end
-    if starts_fold(level) and not starts_fold(before) then
+    if starts_fold(level) and not started_fold(old, lnum, first, last, new_last) then
       table.insert(starts, lnum)
     end
   end
@@ -106,11 +113,11 @@ end
 
 -- Brings the buffer's windows up to date after an edit changed its levels from `old` to
 -- `new`, with the edit's on_lines rows. Neovim skips fold updates in insert mode and does
--- not catch up afterwards for foldmethod=expr, so typing waits for InsertLeave.
+-- not catch up afterwards for foldmethod=expr, so typing waits for the mode to end.
 function M.update(buf, old, new, first, last, new_last)
   local mode = vim.api.nvim_get_mode().mode:sub(1, 1)
   if mode == "i" or mode == "R" then
-    awaiting_insert_leave[buf] = true
+    awaiting_insert_end[buf] = true
   else
     refresh(buf, new_starts(old, new, first, last, new_last))
   end
@@ -120,9 +127,10 @@ end
 -- count should not draw there: an end-of-line count does not show on a closed fold, so
 -- the caller places this one itself. The column is the end of the line, for the caller's
 -- leading space to cover the fold's fill character. Nil once scrolling has taken it
--- off-screen, because a window column cannot be negative.
-function M.closed_count_col(win, lnum)
-  if not is_ours(win) then
+-- off-screen, because a window column cannot be negative. Checking the fold is a window
+-- switch, so only a line that starts a fold of ours pays for it.
+function M.closed_count_col(win, buf, lnum)
+  if not (starts_fold(tree.get(buf).folds[lnum]) and is_ours(win)) then
     return nil
   end
   return vim.api.nvim_win_call(win, function()
@@ -147,11 +155,14 @@ function M.start()
         sync(args.buf)
       end,
     })
-    vim.api.nvim_create_autocmd("InsertLeave", {
+    -- Not InsertLeave, which <C-c> skips. The pattern leaves out moves within insert mode,
+    -- such as into completion, where a refresh would still do nothing.
+    vim.api.nvim_create_autocmd("ModeChanged", {
       group = group,
+      pattern = "[iR]*:[^iR]*",
       callback = function(args)
-        if awaiting_insert_leave[args.buf] then
-          awaiting_insert_leave[args.buf] = nil
+        if awaiting_insert_end[args.buf] then
+          awaiting_insert_end[args.buf] = nil
           refresh(args.buf, {})
           -- Lines moved while typing, so new starts cannot be traced to the old levels.
           -- But typing happens at the cursor, so the fold it just made is the one here.

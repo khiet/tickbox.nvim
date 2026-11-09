@@ -43,8 +43,11 @@ local function watch(buf)
       end
       local options = buffers.options()
       local current = tree.get(buf)
-      if options.fold and not vim.deep_equal(current.folds, watch_state.folds) then
-        fold.update(buf, watch_state.folds, current.folds, first, last, new_last)
+      -- Tracked with the option off too, so turning it on later has a true baseline.
+      if not vim.deep_equal(current.folds, watch_state.folds) then
+        if options.fold then
+          fold.update(buf, watch_state.folds, current.folds, first, last, new_last)
+        end
         watch_state.folds = current.folds
       end
       if options.progress and not vim.deep_equal(current.counts, watch_state.counts) then
@@ -94,15 +97,11 @@ local function draw_progress(win, buf, row)
     hl_mode = "combine",
   }
 
-  -- Asking whether a window has a line folded is a window switch, so only a line that
-  -- can start a heading fold pays for it, not every parent task on every redraw.
-  if buffers.options().fold and current.folds[lnum]:sub(1, 1) == ">" then
-    local col = fold.closed_count_col(win, lnum)
-    if col then
-      mark.virt_text = { { " " }, { text, "TickboxProgress" } }
-      mark.virt_text_pos = "overlay"
-      mark.virt_text_win_col = col
-    end
+  local col = fold.closed_count_col(win, buf, lnum)
+  if col then
+    mark.virt_text = { { " " }, { text, "TickboxProgress" } }
+    mark.virt_text_pos = "overlay"
+    mark.virt_text_win_col = col
   end
   vim.api.nvim_buf_set_extmark(buf, ns, row, 0, mark)
 end
