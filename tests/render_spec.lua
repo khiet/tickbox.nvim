@@ -163,6 +163,8 @@ describe("rendering", function()
     vim.api.nvim_set_hl(0, "TickboxChecked", { link = "Title" })
     require("tickbox").setup()
     assert.are.equal("Title", vim.api.nvim_get_hl(0, { name = "TickboxChecked" }).link)
+    vim.cmd("doautocmd ColorScheme")
+    assert.are.equal("Title", vim.api.nvim_get_hl(0, { name = "TickboxChecked" }).link)
     vim.api.nvim_set_hl(0, "TickboxChecked", { link = "DiagnosticOk" })
   end)
 
