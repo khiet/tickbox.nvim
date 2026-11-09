@@ -206,6 +206,68 @@ describe("rendering", function()
     end
   end)
 
+  describe("padding over a prefix treesitter reads as a link", function()
+    local groups = { "@markup.link", "@markup.list", "@markup.list.unchecked", "CursorLine" }
+    local saved = {}
+
+    -- The marker groups go blank so that a `[ ]` line's padding has no foreground and
+    -- differs from a `[/]` line's only by what the link capture adds.
+    local function style_groups()
+      vim.api.nvim_set_hl(0, "@markup.link", { underline = true })
+      vim.api.nvim_set_hl(0, "@markup.list", {})
+      vim.api.nvim_set_hl(0, "@markup.list.unchecked", {})
+      vim.api.nvim_set_hl(0, "CursorLine", { bg = "#333333" })
+    end
+
+    before_each(function()
+      for _, name in ipairs(groups) do
+        saved[name] = vim.api.nvim_get_hl(0, { name = name })
+      end
+      style_groups()
+    end)
+
+    after_each(function()
+      vim.wo.cursorline = false
+      for name, hl in pairs(saved) do
+        vim.api.nvim_set_hl(0, name, hl)
+      end
+    end)
+
+    -- `[/]` and `[-]` are not GFM task markers, so markdown_inline captures their brackets
+    -- as @markup.link. Screen columns 3 and 5 hold those brackets, under the padding.
+    local function assert_matches_plain_box(line)
+      local buf = h.open({ line, "- [ ] a", "plain" })
+      vim.treesitter.start(buf, "markdown")
+      vim.wo.cursorline = true
+
+      local function attrs_with_cursor_on(lnum, row)
+        vim.api.nvim_win_set_cursor(0, { lnum, 0 })
+        vim.cmd("redraw!")
+        return { vim.fn.screenattr(row, 3), vim.fn.screenattr(row, 5) }
+      end
+
+      local off_cursorline = attrs_with_cursor_on(3, 1)
+      assert.are.same(attrs_with_cursor_on(3, 2), off_cursorline)
+
+      local on_cursorline = attrs_with_cursor_on(1, 1)
+      assert.are.same(attrs_with_cursor_on(2, 2), on_cursorline)
+      assert.are_not.same(off_cursorline, on_cursorline)
+    end
+
+    for _, line in ipairs({ "- [/] a", "- [-] a" }) do
+      it("hides the link underline on " .. line .. " and keeps cursorline", function()
+        assert_matches_plain_box(line)
+      end)
+    end
+
+    it("still hides it after the colorscheme changes", function()
+      -- Loading a colorscheme runs `hi clear`, which also resets the styled groups.
+      vim.cmd("colorscheme default")
+      style_groups()
+      assert_matches_plain_box("- [/] a")
+    end)
+  end)
+
   describe("done text", function()
     local lines = { "- [ ] a", "- [/] b", "- [x] c", "- [X] d", "- [-] e", "plain" }
 
