@@ -5,8 +5,7 @@ local tree = require("tickbox.tree")
 
 local M = {}
 
--- A transition maps a task's state to the one that replaces it. A state with no entry
--- is left unedited.
+-- A transition maps a task's state to the one that replaces it.
 M.toggle, M.cycle = {}, {}
 for _, name in ipairs(state.order) do
   M.toggle[name] = state.toggled(name)
