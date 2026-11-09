@@ -21,7 +21,10 @@ local function map_action(name, operator, run_range, normal_desc, visual_desc)
     -- Not feedkeys: that would run keys queued behind the mapping, like the rest of a
     -- macro, while still in visual mode.
     vim.cmd.normal({ vim.keycode("<Esc>"), bang = true })
-    run_range(math.min(anchor, cursor), math.max(anchor, cursor))
+    local first, last = math.min(anchor, cursor), math.max(anchor, cursor)
+    -- A selection touching a closed fold covers the whole fold on screen, and acts on it.
+    local fold_start, fold_end = vim.fn.foldclosed(first), vim.fn.foldclosedend(last)
+    run_range(fold_start ~= -1 and fold_start or first, fold_end ~= -1 and fold_end or last)
   end, { silent = true, desc = visual_desc })
 end
 
@@ -53,13 +56,22 @@ vim.keymap.set("n", "<Plug>(tickbox-open-above)", function()
   return require("tickbox.continue").open("O")
 end, { expr = true, desc = "Open a line above, continuing a task list" })
 
+-- Without a range, both ends default to the cursor line, which in a closed fold means the
+-- line seen there: the fold's first. A given range stays as Vim resolved it.
+local function command_range(args)
+  local closed = args.range == 0 and vim.fn.foldclosed(args.line1) or -1
+  if closed ~= -1 then
+    return closed, closed
+  end
+  return args.line1, args.line2
+end
+
 local subcommands = {
   toggle = function(args)
-    -- Without a range, both default to the cursor line.
-    require("tickbox").toggle_range(args.line1, args.line2)
+    require("tickbox").toggle_range(command_range(args))
   end,
   cycle = function(args)
-    require("tickbox").cycle_range(args.line1, args.line2)
+    require("tickbox").cycle_range(command_range(args))
   end,
   enable = function()
     require("tickbox").enable()
@@ -75,7 +87,8 @@ vim.api.nvim_create_user_command("Tickbox", function(args)
   -- The state is the rest of the argument, so an extra word makes it an unknown state.
   local state = argument == "set" and "" or argument:match("^set%s+(.+)$")
   if state then
-    require("tickbox").set_range(state, args.line1, args.line2)
+    local first, last = command_range(args)
+    require("tickbox").set_range(state, first, last)
     return
   end
   local run = subcommands[argument]

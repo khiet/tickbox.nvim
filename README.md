@@ -59,11 +59,13 @@ require("tickbox").setup({
   },
   progress = false,                            -- done/total on parents and headings
   auto_check_parent = false,                   -- keep parents in step with children
+  fold = false,                                -- fold headings that have tasks
 })
 ```
 
 - `progress`: every parent task and heading with at least one counted task shows `done/total` at the end of its line, in `TickboxProgress`. See [Progress and parents](#progress-and-parents).
 - `auto_check_parent`: after a toggle, cycle or set, an ancestor whose counted descendants are all checked becomes `[x]`, and a checked ancestor with a descendant that is not becomes `[ ]`.
+- `fold`: headings that have tasks fold in attached buffers. Off, the plugin leaves every fold option untouched. See [Folding](#folding).
 
 Each call starts from the defaults rather than the previous call's options. Below Neovim 0.10 it raises an error naming the minimum version. Without a Nerd Font, try `icons = { unchecked = "☐", in_progress = "◐", checked = "☑", cancelled = "☒" }`.
 
@@ -87,6 +89,17 @@ Toggling is a done/not-done switch: a checked task becomes `[ ]` and every other
 - Counts cover all descendants, not only direct children. `done` is checked tasks and `total` is unchecked, in-progress and checked ones; cancelled tasks are left out, and a total of 0 shows nothing.
 - With `auto_check_parent`, the change walks up through every ancestor. It never changes a task's descendants, never touches a cancelled ancestor, and never uses headings. A toggle, cycle or set and the parents it updates are one undo step, and a range updates parents once after all its edits, leaving the tasks in the range as the range set them.
 - Fenced lines are ignored, and counts follow `:Tickbox disable` and `enable` like the icons. They stay visible on the line being typed.
+
+### Folding
+
+`fold = true` sets `foldmethod`, `foldexpr`, `foldtext` and `foldlevel` on attached buffers. Folds start open, and there are no new keymaps: native `za`, `zc`, `zM` and `zR` work.
+
+- A heading folds if it has at least one task under it, by the rules above, including one with only cancelled tasks. Nested headings fold too. A heading with no tasks has no fold of its own, and folds with its parent if it has one.
+- A fold runs from the heading through the line before the next heading of the same or a higher level, prose and trailing blank lines included. Fenced lines are ignored, and only `#` to `######` headings fold.
+- Folds follow edits: the first task under a heading makes it foldable, and removing its last task removes the fold, without closing anything you closed.
+- A closed heading shows its own text and highlighting rather than a fold summary, followed by its count when `progress` is on. The rest of the line takes the `fold` item of `fillchars`.
+- A toggle, cycle or set with the cursor on a closed heading does nothing and returns `false`, as on any non-task line. A visual selection over a closed fold acts on the tasks in it.
+- `:Tickbox disable` keeps folds, because it only stops drawing. The count disappears with the other rendering.
 
 ### Commands
 

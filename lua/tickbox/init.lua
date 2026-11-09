@@ -1,4 +1,5 @@
 local buffers = require("tickbox.buffers")
+local fold = require("tickbox.fold")
 local render = require("tickbox.render")
 local state = require("tickbox.state")
 local toggle = require("tickbox.toggle")
@@ -18,6 +19,8 @@ local defaults = {
   -- After a toggle or cycle, checks an ancestor whose counted descendants are all
   -- checked and unchecks a checked one whose are not.
   auto_check_parent = false,
+  -- Folds headings that have tasks. Off leaves every fold option untouched.
+  fold = false,
 }
 
 local started = false
@@ -29,6 +32,7 @@ function M.setup(opts)
     error("tickbox.nvim requires Neovim 0.10 or later", 0)
   end
   buffers.setup(vim.tbl_deep_extend("force", defaults, opts or {}))
+  fold.start()
   render.start()
   started = true
 end
