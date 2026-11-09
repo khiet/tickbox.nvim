@@ -23,10 +23,9 @@ local function heading_level(line)
 end
 
 -- Returns, for 1-indexed `lines` from the top of the buffer:
--- `fenced`: the parse.fenced set.
--- `tasks`: by line number, each parse.classify result plus `lnum`, `indent` (its width in
---   columns), `parent` (the line number of the nearest enclosing task, or nil) and
---   `children` (line numbers of direct child tasks).
+-- `tasks`: by line number, each parse.classify result plus `lnum`, `length` (the line's
+--   byte length), `indent` (its width in columns), `parent` (the line number of the
+--   nearest enclosing task, or nil) and `children` (line numbers of direct child tasks).
 -- `counts`: by line number, `{ done, total }` for each task and heading with at least one
 --   counted task under it. Counts cover all descendants; cancelled tasks are left out.
 --
@@ -68,6 +67,7 @@ function M.build(lines)
           local parent = open_tasks[#open_tasks]
           task.indent = width
           task.lnum = lnum
+          task.length = #line
           task.parent = parent and parent.lnum
           task.children = {}
           if parent then
@@ -90,7 +90,7 @@ function M.build(lines)
     end
   end
 
-  return { fenced = fenced, tasks = tasks, counts = counts }
+  return { tasks = tasks, counts = counts }
 end
 
 -- The build result for the buffer's current text. Callers must not modify it.

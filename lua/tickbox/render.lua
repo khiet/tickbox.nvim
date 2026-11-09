@@ -1,7 +1,6 @@
 -- Draws task boxes with a decoration provider. Marks are ephemeral, so they exist
 -- only for the redraw that placed them: there is nothing to clear or keep in sync,
 -- and text changes, undo, :e, folds and scrolling are covered by redraws alone.
-local parse = require("tickbox.parse")
 local state = require("tickbox.state")
 local tree = require("tickbox.tree")
 
@@ -83,13 +82,9 @@ local function draw_progress(buf, row)
 end
 
 local function draw(buf, row)
-  -- A fence can open anywhere above the viewport, so this needs the whole buffer; the
-  -- tree caches that per buffer change rather than per redraw.
-  if tree.get(buf).fenced[row + 1] then
-    return
-  end
-  local line = vim.api.nvim_buf_get_lines(buf, row, row + 1, false)[1]
-  local task = line and parse.classify(line)
+  -- A fence can open anywhere above the viewport, so the task needs the whole buffer;
+  -- the tree caches that per buffer change rather than per redraw.
+  local task = tree.get(buf).tasks[row + 1]
   if not task then
     return
   end
@@ -113,10 +108,10 @@ local function draw(buf, row)
 
   -- Starts past the space that ends the prefix, so a strikethrough begins at the text.
   local text_start = task.prefix_end + 1
-  if style_checked_text and state.is_done(task.state) and text_start < #line then
+  if style_checked_text and state.is_done(task.state) and text_start < task.length then
     vim.api.nvim_buf_set_extmark(buf, ns, row, text_start, {
       ephemeral = true,
-      end_col = #line,
+      end_col = task.length,
       hl_group = "TickboxCheckedText",
     })
   end

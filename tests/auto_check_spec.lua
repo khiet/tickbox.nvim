@@ -108,6 +108,21 @@ describe("auto_check_parent", function()
     assert.are.same({ "- [x] parent", "  - [x] a", "  - [ ] b" }, lines())
   end)
 
+  it("parses the buffer once, before the first edit", function()
+    local tree = require("tickbox.tree")
+    local build = tree.build
+    local seen = {}
+    tree.build = function(lines)
+      table.insert(seen, lines)
+      return build(lines)
+    end
+    h.open({ "- [ ] parent", "  - [ ] a", "  - [ ] b" })
+    tickbox.toggle_range(2, 3)
+    tree.build = build
+    assert.are.same({ "- [x] parent", "  - [x] a", "  - [x] b" }, lines())
+    assert.are.same({ { "- [ ] parent", "  - [ ] a", "  - [ ] b" } }, seen)
+  end)
+
   it("ignores fenced lines", function()
     h.open({ "- [ ] parent", "  ```", "  - [ ] sample", "  ```", "  - [ ] a" })
     toggle_at(5)
