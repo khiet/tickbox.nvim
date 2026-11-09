@@ -2,8 +2,8 @@
 -- mapping: the plain key off a task line, or a <Cmd> that writes the new line through
 -- the API on one. Writing the whole line replaces any leader 'formatoptions' inserted, so
 -- a plugin that continues lists itself cannot double the marker.
-local parse = require("tickbox.parse")
 local render = require("tickbox.render")
+local tree = require("tickbox.tree")
 
 local M = {}
 
@@ -14,17 +14,15 @@ local function cursor_task()
   if not vim.bo.modifiable or not render.is_attached() then
     return nil
   end
-  local row = vim.api.nvim_win_get_cursor(0)[1]
-  local lines = vim.api.nvim_buf_get_lines(0, 0, row, false)
-  local line = lines[row]
-  local task = not parse.fenced(lines)[row] and parse.classify(line)
+  local task = tree.get(0).tasks[vim.api.nvim_win_get_cursor(0)[1]]
   if not task or task.ordered then
     return nil
   end
-  return line, task
+  return vim.api.nvim_get_current_line(), task
 end
 
--- The new line's prefix, such as "  - [ ] ". The marker is one character because
+-- The new line's prefix, such as "  - [ ] ": the indentation and marker that open the
+-- task's prefix range, then an unchecked box. The marker is one character because
 -- ordered tasks never get here.
 local function prefix(line, task)
   return line:sub(1, task.prefix_start + 1) .. " [ ] "

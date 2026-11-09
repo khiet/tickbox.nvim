@@ -1,4 +1,3 @@
-local parse = require("tickbox.parse")
 local render = require("tickbox.render")
 local state = require("tickbox.state")
 local tree = require("tickbox.tree")
@@ -9,11 +8,18 @@ local function interior_of(name)
   return state.states[name].interior
 end
 
--- Both map a task's state to the interior that replaces it.
+-- Both map a task's state to the state that replaces it.
 local toggled, cycled = {}, {}
 for _, name in ipairs(state.order) do
-  toggled[name] = interior_of(state.toggled(name))
-  cycled[name] = interior_of(state.states[name].successor)
+  toggled[name] = state.toggled(name)
+  cycled[name] = state.states[name].successor
+end
+
+-- Writes `name` into the task's interior. The buffer line changes but its number does
+-- not, so a tree built before the edit still locates every task.
+local function write_state(task, name)
+  local row = task.lnum - 1
+  vim.api.nvim_buf_set_text(0, row, task.interior_start, row, task.interior_end, { interior_of(name) })
 end
 
 -- Brings the ancestors of the tasks on `edited` lines in line with their descendants: an
@@ -21,8 +27,11 @@ end
 -- with a descendant that is not becomes unchecked. Cancelled ancestors are left alone,
 -- and so is every line in `range_tasks`, edited or not, so a range never undoes its own
 -- result. Must run in the same call as the edits, so all of them stay one undo step.
-local function propagate(edited, range_tasks)
-  local tasks = tree.get(0).tasks
+--
+-- `tasks` is the tree from before those edits; `rewritten` holds the states they wrote,
+-- by line number, and gains each state written here. Reading edits from the overlay
+-- rather than re-parsing keeps the whole call on one snapshot.
+local function propagate(tasks, edited, range_tasks, rewritten)
   local pending = {}
   for _, lnum in ipairs(edited) do
     local parent = tasks[lnum].parent
@@ -41,8 +50,6 @@ local function propagate(edited, range_tasks)
     return a > b
   end)
 
-  -- States rewritten so far, by line number; the tree still holds the old ones.
-  local rewritten = {}
   local function state_of(lnum)
     return rewritten[lnum] or tasks[lnum].state
   end
@@ -72,37 +79,35 @@ local function propagate(edited, range_tasks)
       target = state.toggled(current)
     end
     if target and target ~= current then
-      local task = tasks[lnum]
-      vim.api.nvim_buf_set_text(0, lnum - 1, task.interior_start, lnum - 1, task.interior_end, { interior_of(target) })
+      write_state(tasks[lnum], target)
       rewritten[lnum] = target
     end
   end
 end
 
--- Sets each task in the range to `next_interior[task.state]`, with the results
+-- Sets each task in the range to `next_state[task.state]`, with the results
 -- `toggle_range` describes. A state with no entry is left unedited.
-local function rewrite_range(next_interior, first, last)
+local function rewrite_range(next_state, first, last)
   if not vim.bo.modifiable or not render.is_attached() then
     return false
   end
-  -- Fence state only depends on the lines above, so the rest need not be read.
-  local lines = vim.api.nvim_buf_get_lines(0, 0, last, false)
-  local fenced = parse.fenced(lines)
-  local edited, range_tasks = {}, {}
-  for lnum = math.max(first, 1), #lines do
-    local task = not fenced[lnum] and parse.classify(lines[lnum])
+  -- Taken before any edit, so one parse serves the range and the propagation after it.
+  local tasks = tree.get(0).tasks
+  local edited, range_tasks, rewritten = {}, {}, {}
+  for lnum = math.max(first, 1), math.min(last, vim.api.nvim_buf_line_count(0)) do
+    local task = tasks[lnum]
     if task then
       range_tasks[lnum] = true
-      local row = lnum - 1
-      local interior = next_interior[task.state]
-      if interior then
-        vim.api.nvim_buf_set_text(0, row, task.interior_start, row, task.interior_end, { interior })
+      local target = next_state[task.state]
+      if target then
+        write_state(task, target)
+        rewritten[lnum] = target
         table.insert(edited, lnum)
       end
     end
   end
   if #edited > 0 and render.options().auto_check_parent then
-    propagate(edited, range_tasks)
+    propagate(tasks, edited, range_tasks, rewritten)
   end
   return #edited > 0
 end
@@ -129,13 +134,13 @@ function M.set_range(name, first, last)
   if not state.states[name] then
     error("Tickbox: unknown state: " .. tostring(name), 0)
   end
-  local next_interior = {}
+  local next_state = {}
   for _, other in ipairs(state.order) do
     if other ~= name then
-      next_interior[other] = interior_of(name)
+      next_state[other] = name
     end
   end
-  return rewrite_range(next_interior, first, last)
+  return rewrite_range(next_state, first, last)
 end
 
 -- Acts on the cursor line, with the same results as the range form, so a mapping can

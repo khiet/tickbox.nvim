@@ -6,6 +6,14 @@ local function count(lines, lnum)
 end
 
 describe("tree", function()
+  it("is the only module that reads buffer lines and classifies tasks", function()
+    for _, name in ipairs({ "render", "toggle", "continue" }) do
+      local source = table.concat(vim.fn.readfile(("lua/tickbox/%s.lua"):format(name)), "\n")
+      assert.is_nil(source:find("tickbox.parse", 1, true), name .. " requires parse")
+      assert.is_nil(source:find("nvim_buf_get_lines", 1, true), name .. " reads buffer lines")
+    end
+  end)
+
   it("counts checked over every state but cancelled", function()
     local lines = { "- [ ] parent", "  - [x] a", "  - [ ] b", "  - [/] c", "  - [-] d" }
     assert.are.equal("1/3", count(lines, 1))
@@ -70,6 +78,30 @@ describe("tree", function()
     local lines = { "#tag", "####### seven", "- [ ] parent", "  - [x] a" }
     assert.are.equal("1/1", count(lines, 3))
     assert.is_nil(count(lines, 1))
+  end)
+
+  it("leaves fenced lines out of tasks", function()
+    local t = tree.build({ "- [ ] one", "```", "- [ ] sample", "```", "- [ ] two" })
+    assert.is_nil(t.tasks[3])
+    assert.are.equal("unchecked", t.tasks[1].state)
+    assert.are.equal("unchecked", t.tasks[5].state)
+  end)
+
+  it("keeps an unclosed fence open to the last line", function()
+    local t = tree.build({ "```", "- [ ] sample", "- [ ] more" })
+    assert.is_nil(t.tasks[2])
+    assert.is_nil(t.tasks[3])
+  end)
+
+  it("lists a task below a closed fence", function()
+    local t = tree.build({ "```", "```", "- [ ] real" })
+    assert.are.equal("unchecked", t.tasks[3].state)
+  end)
+
+  it("treats a fence opened on a list marker as a fence", function()
+    local t = tree.build({ "- ```", "- [ ] sample", "```", "- [ ] real" })
+    assert.is_nil(t.tasks[2])
+    assert.are.equal("unchecked", t.tasks[4].state)
   end)
 
   it("links tasks to their parent and children", function()

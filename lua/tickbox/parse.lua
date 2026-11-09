@@ -14,8 +14,8 @@ local task_pattern = "^ +()%[([" .. interior_set .. "])%] "
 -- `state` (a name from `state.order`), `ordered` (a numbered marker) and 0-indexed,
 -- end-exclusive byte ranges:
 -- `prefix_*` covers the marker through the closing bracket, `interior_*` the
--- single character between the brackets. Does not know about fences; pair it with
--- `fenced`.
+-- single character between the brackets. Does not know about fences; `tree` pairs it
+-- with `fenced`, and is the only caller of either.
 function M.classify(line)
   local marker = line:match("^%s*()")
   local after_bullet = line:match("^[-*+]()", marker)
