@@ -22,23 +22,33 @@ local function heading_level(line)
   return hashes and #hashes <= 6 and #hashes or nil
 end
 
--- The done/total rule. Returns `done, total` over the tasks on `lnums` and all their
--- descendants: cancelled tasks are left out, checked tasks are done. `overlay`, by line
--- number, gives states to count in place of the tasks' own, so a caller planning edits
--- can count the tree as it will be without rebuilding it.
+-- The done/total rule. Returns `done, total` over the tasks on `lnums`: cancelled tasks
+-- are left out, checked tasks are done. `overlay`, by line number, gives states to count
+-- in place of the tasks' own, so a caller planning edits can count the tree as it will
+-- be without rebuilding it.
 function M.count(tasks, lnums, overlay)
   local done, total = 0, 0
   for _, lnum in ipairs(lnums) do
-    local task = tasks[lnum]
-    local name = overlay and overlay[lnum] or task.state
+    local name = overlay and overlay[lnum] or tasks[lnum].state
     if state.counts(name) then
       total = total + 1
       done = done + (state.is_done(name) and 1 or 0)
     end
-    local d, t = M.count(tasks, task.children, overlay)
-    done, total = done + d, total + t
   end
   return done, total
+end
+
+-- The line numbers of every task under the task on `lnum`, in buffer order.
+function M.descendants(tasks, lnum)
+  local found = {}
+  local function walk(parent)
+    for _, child in ipairs(tasks[parent].children) do
+      table.insert(found, child)
+      walk(child)
+    end
+  end
+  walk(lnum)
+  return found
 end
 
 -- Returns, for 1-indexed `lines` from the top of the buffer:
@@ -55,9 +65,8 @@ end
 function M.build(lines)
   local fenced = parse.fenced(lines)
   local tasks = {}
-  -- Enclosing tasks and headings, outermost first. A heading's `roots` are the tasks
-  -- under it whose parent is not, so counting them and their descendants covers every
-  -- task under the heading exactly once.
+  -- Enclosing tasks and headings, outermost first. A heading collects every task line
+  -- under it in `tasks`, since a task's subtree may run on past the heading's end.
   local open_tasks, open_headings, headings = {}, {}, {}
 
   for lnum, line in ipairs(lines) do
@@ -72,7 +81,7 @@ function M.build(lines)
         while #open_headings > 0 and open_headings[#open_headings].level >= level do
           table.remove(open_headings)
         end
-        local heading = { lnum = lnum, level = level, roots = {} }
+        local heading = { lnum = lnum, level = level, tasks = {} }
         table.insert(open_headings, heading)
         table.insert(headings, heading)
       else
@@ -89,9 +98,7 @@ function M.build(lines)
           end
           tasks[lnum] = task
           for _, heading in ipairs(open_headings) do
-            if not parent or parent.lnum < heading.lnum then
-              table.insert(heading.roots, lnum)
-            end
+            table.insert(heading.tasks, lnum)
           end
           table.insert(open_tasks, task)
         end
@@ -106,11 +113,11 @@ function M.build(lines)
       counts[lnum] = { done = done, total = total }
     end
   end
-  for lnum, task in pairs(tasks) do
-    record(lnum, task.children)
+  for lnum in pairs(tasks) do
+    record(lnum, M.descendants(tasks, lnum))
   end
   for _, heading in ipairs(headings) do
-    record(heading.lnum, heading.roots)
+    record(heading.lnum, heading.tasks)
   end
 
   return { tasks = tasks, counts = counts }

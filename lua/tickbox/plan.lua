@@ -56,7 +56,7 @@ local function propagate(tasks, edits, range_tasks)
 
   for _, lnum in ipairs(order) do
     local current = edits[lnum] or tasks[lnum].state
-    local done, total = tree.count(tasks, tasks[lnum].children, edits)
+    local done, total = tree.count(tasks, tree.descendants(tasks, lnum), edits)
     local target
     if not state.counts(current) or total == 0 then
       target = nil
