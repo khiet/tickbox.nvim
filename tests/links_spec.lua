@@ -94,6 +94,18 @@ describe("links", function()
       assert.are.equal(h.UNCHECKED .. "     a and b", h.screen_line(1))
     end)
 
+    it("draws a link on every kind of task", function()
+      for _, case in ipairs({
+        { "- [/] [a](" .. URL .. ")", h.IN_PROGRESS .. "     a" },
+        { "1. [x] [a](" .. URL .. ")", h.CHECKED .. "      a" },
+        { "  * [-] [a](" .. URL .. ")", "  " .. h.CANCELLED .. "     a" },
+      }) do
+        local buf = open_treesitter({ case[1], "last" })
+        park_cursor(buf)
+        assert.are.equal(case[2], h.screen_line(1))
+      end
+    end)
+
     it("leaves the raw forms raw on a task", function()
       local forms = {
         "![i](" .. URL .. ")",
@@ -149,13 +161,6 @@ describe("links", function()
       assert.are.equal("x", h.screen_line(2))
     end)
 
-    it("draws a task in a fence raw", function()
-      local fenced = "- [ ] [a](" .. URL .. ")"
-      local buf = open_treesitter({ "```", fenced, "```", "last" })
-      park_cursor(buf)
-      assert.are.equal(fenced, h.screen_line(2))
-    end)
-
     describe("appearance", function()
       local function attr(col)
         h.screen_line(1)
@@ -170,8 +175,9 @@ describe("links", function()
       end)
 
       after_each(function()
-        vim.api.nvim_set_hl(0, "TickboxLink", {})
-        vim.api.nvim_set_hl(0, "TickboxCheckedText", {})
+        -- An empty definition would still count as the user's, and hold off the default.
+        vim.cmd("hi clear TickboxLink")
+        vim.cmd("hi clear TickboxCheckedText")
       end)
 
       it("styles the label and not the text around it", function()
@@ -203,11 +209,10 @@ describe("links", function()
     end)
 
     describe("TickboxLink", function()
-      it("links to Underlined by default", function()
-        vim.api.nvim_set_hl(0, "TickboxLink", {})
-        tickbox.setup({ links = true })
-        vim.cmd("hi clear TickboxLink")
-        tickbox.setup({ links = true })
+      it("links to Underlined by default and after a colorscheme change", function()
+        assert.are.equal("Underlined", vim.api.nvim_get_hl(0, { name = "TickboxLink" }).link)
+        vim.cmd("hi clear")
+        vim.api.nvim_exec_autocmds("ColorScheme", {})
         assert.are.equal("Underlined", vim.api.nvim_get_hl(0, { name = "TickboxLink" }).link)
       end)
 
