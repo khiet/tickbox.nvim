@@ -154,9 +154,7 @@ function M.start()
   -- TickboxPadding would be lost and the underline it hides would return.
   vim.api.nvim_create_autocmd("ColorScheme", {
     group = group,
-    callback = function()
-      define_highlights()
-    end,
+    callback = define_highlights,
   })
   vim.api.nvim_create_autocmd("FileType", {
     group = group,
