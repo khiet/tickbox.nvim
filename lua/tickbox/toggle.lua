@@ -20,8 +20,8 @@ local function apply(tasks, edits)
 end
 
 -- Applies `transition` to the tasks in the range, with the results `toggle_range`
--- describes. The buffer is read once, before any edit, and every edit of the call is
--- written here, so all of them share one undo step.
+-- describes. The buffer is read once, before any edit, and one apply step writes every
+-- edit of the call, so all of them share one undo step.
 local function rewrite_range(transition, first, last)
   if not vim.bo.modifiable or not render.is_attached() then
     return false

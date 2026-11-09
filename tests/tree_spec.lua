@@ -119,6 +119,12 @@ describe("tree", function()
     { "- [ ] parent", "  ## H", "  - [x] a" },
     { "- [ ] parent", "  - [-] a" },
     { "# H", "- [ ] parent", "  ```", "  - [x] sample", "# fenced", "  ```", "  - [x] real" },
+    { "#tag", "####### seven", "- [ ] parent", "  - [x] a" },
+    { "- [ ] one", "```", "- [ ] sample", "```", "- [ ] two" },
+    { "```", "- [ ] sample", "- [ ] more" },
+    { "```", "```", "- [ ] real" },
+    { "- ```", "- [ ] sample", "```", "- [ ] real" },
+    { "- [ ] p", "  - [ ] a", "    - [ ] b", "  - [ ] c" },
   }
   for i, lines in ipairs(counted) do
     it("counts a task's children the way build does, case " .. i, function()
