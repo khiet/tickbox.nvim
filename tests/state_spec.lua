@@ -1,14 +1,24 @@
+local h = require("tests.helpers")
 local state = require("tickbox.state")
 
+-- Collects `field` of every state, in cycle order.
+local function per_state(field)
+  local values = {}
+  for _, name in ipairs(state.order) do
+    table.insert(values, state.states[name][field])
+  end
+  return values
+end
+
 describe("state", function()
-  it("gives every state an interior, a highlight group, a default icon and a successor", function()
-    for _, name in ipairs(state.order) do
-      local entry = state.states[name]
-      assert.are.equal(1, #entry.interior, name)
-      assert.matches("^Tickbox%u", entry.highlight, name)
-      assert.is_true(vim.fn.strdisplaywidth(entry.icon) > 0, name)
-      assert.is_not_nil(state.states[entry.successor], name)
-    end
+  it("gives every state an interior, a highlight group and a default icon", function()
+    assert.are.same({ "unchecked", "in_progress", "checked", "cancelled" }, state.order)
+    assert.are.same({ " ", "/", "x", "-" }, per_state("interior"))
+    assert.are.same(
+      { "TickboxUnchecked", "TickboxInProgress", "TickboxChecked", "TickboxCancelled" },
+      per_state("highlight")
+    )
+    assert.are.same({ h.UNCHECKED, h.IN_PROGRESS, h.CHECKED, h.CANCELLED }, per_state("icon"))
   end)
 
   it("cycles unchecked, in progress, checked, cancelled, then unchecked again", function()
@@ -46,8 +56,13 @@ describe("state", function()
   end)
 
   it("toggles checked to unchecked and every other state to checked", function()
+    local toggled = {}
     for _, name in ipairs(state.order) do
-      assert.are.equal(name == "checked" and "unchecked" or "checked", state.toggled(name), name)
+      toggled[name] = state.toggled(name)
     end
+    assert.are.same(
+      { unchecked = "checked", in_progress = "checked", checked = "unchecked", cancelled = "checked" },
+      toggled
+    )
   end)
 end)
