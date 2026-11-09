@@ -9,6 +9,7 @@ CONTENTS                                                             *tickbox*
   Task states ............................. |tickbox-states|
   Progress and parents .................... |tickbox-progress|
   Folding ................................. |tickbox-fold|
+  Links ................................... |tickbox-links|
   Commands ................................ |tickbox-commands|
   Mapping ................................. |tickbox-mapping|
   Continuing a list ....................... |tickbox-continue|
@@ -25,8 +26,8 @@ box, with `[/]` for in progress and `[-]` for cancelled. Nothing else in the
 buffer is changed, and rendering never edits the text. One mapping toggles the
 task under the cursor, or every task in a visual range, and another cycles it
 through the four states. Optional mappings start the next task on <CR>, |o|
-and |O|. There is no treesitter dependency, no 'conceallevel' change and no
-default keymap.
+and |O|. There is no default keymap, and no treesitter dependency or
+'conceallevel' change unless `links` is on.
 
 Requires Neovim 0.10 or later. The default glyphs need a Nerd Font; see
 |tickbox-options| for Unicode ones.
@@ -60,6 +61,7 @@ Defaults: >lua
       progress = false,
       auto_check_parent = false,
       fold = false,
+      links = false,
     })
 <
     filetypes   Filetypes to render. Replaces the default list.
@@ -74,6 +76,9 @@ Defaults: >lua
                 with a descendant that is not. See |tickbox-progress|.
     fold        Fold headings that have tasks in attached buffers. Off, the
                 plugin leaves every fold option untouched. See |tickbox-fold|.
+    links       Draw inline links on task lines as their label, in
+                |TickboxLink|. Off, the plugin leaves 'conceallevel' and the
+                treesitter highlighter alone. See |tickbox-links|.
 
 Each call starts from the defaults rather than the previous call's options.
 Below Neovim 0.10 it raises an error naming the minimum version.
@@ -147,6 +152,41 @@ takes the `fold` item of 'fillchars'.
 A toggle, cycle or set with the cursor on a closed heading does nothing and
 returns false, as on any non-task line. A visual selection over a closed fold
 acts on the tasks in it.
+
+==============================================================================
+LINKS                                                          *tickbox-links*
+
+`links = true` draws an inline link on a task line as its label: >markdown
+    - [ ] review [ABC-123](https://example.com/ABC-123) today
+<
+draws as `review ABC-123 today`, with the label in |TickboxLink|. The buffer
+text does not change. No mapping is added: |gx| opens the URL as usual, from
+the label, a bracket or the hidden URL. That is tested on Neovim 0.12, which
+reads the URL from treesitter; earlier versions are untested.
+
+Only the text after a task's prefix counts. Plain bullets, prose, headings,
+fenced lines and indented lines under a task stay raw, even with links in
+them. On a task line these stay raw too: images, reference links, bare URLs,
+autolinks, links in code spans, and links with an empty label or URL.
+
+In normal and command mode the cursor line stays drawn, so lines keep their
+width as the cursor moves. The line being typed on shows the raw link, which
+is how you edit a URL, and so does the cursor line in visual mode. Horizontal
+motions still cross the hidden characters, so |l| appears to pause while
+walking over a hidden URL. `:Tickbox disable` shows links raw.
+
+Hiding text takes 'conceallevel' above 0, where Neovim's markdown queries
+would also conceal every other line. So in an attached buffer with a normal
+'buftype' and a treesitter highlighter, this sets `conceallevel=2` and
+`concealcursor=cn` on the window and replaces the highlighter with one that
+uses the same query files minus their conceal directives. A later `setup` with
+`links = false` restores both.
+
+Without a treesitter highlighter, links stay raw; Neovim 0.12 starts one for
+markdown by itself. A window already above level 0 keeps its options and its
+highlighter and only gets the labels, because its owner already chose conceal.
+If a buffer shows in such a window and in another that this manages, the
+highlighter is shared, so the first window loses Neovim's conceal too.
 
 |:Tickbox| `disable` keeps folds, because it only stops drawing. The count
 disappears with the other rendering.
@@ -329,6 +369,11 @@ TickboxCheckedText  Text of checked tasks, after the box. Has no attributes
                                                              *TickboxProgress*
 TickboxProgress     `done/total` counts, see |tickbox-progress|. Links to
                     `Comment` by default.
+
+                                                                 *TickboxLink*
+TickboxLink         The label of a link drawn by `links`, see |tickbox-links|.
+                    Links to `Underlined` by default. Combines with
+                    |TickboxCheckedText| on checked tasks.
 
 All are defined with `default = true`, so a colorscheme or your own
 definition wins.

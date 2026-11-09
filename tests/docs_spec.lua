@@ -40,6 +40,9 @@ local surface = {
   "progress = false",
   "auto_check_parent = false",
   "fold = false",
+  "links = false",
+  "TickboxLink",
+  "gx",
   "foldexpr",
   "fillchars",
   "same or a higher level",
@@ -92,6 +95,17 @@ describe("docs", function()
       local doc = read(path)
       assert.is_truthy(doc:find("<leader><leader>", 1, true))
       assert.is_truthy(doc:find("<C-^>", 1, true))
+    end)
+  end
+
+  -- Both promises are true only while `links` is off, so they must say so.
+  for _, path in ipairs({ "README.md", "doc/tickbox.txt" }) do
+    it(path .. " qualifies its treesitter and conceallevel promise", function()
+      local doc = read(path):gsub("%s+", " ")
+      for promise in doc:gmatch("[Nn]o treesitter[^.]*%.") do
+        assert.is_truthy(promise:find("links", 1, true), promise)
+      end
+      assert.is_truthy(doc:find("[Nn]o treesitter"))
     end)
   end
 
@@ -153,12 +167,17 @@ describe("docs", function()
 
     it("lists folding in Features and shows every option on", function()
       between("fold", "## Features", "## Requirements")
-      between("opts = { progress = true, auto_check_parent = true, fold = true }", "## Features", "## Requirements")
+      between(
+        "opts = { progress = true, auto_check_parent = true, fold = true, links = true }",
+        "## Features",
+        "## Requirements"
+      )
     end)
 
     it("points each shortened rules section at the help file", function()
       between("`:h tickbox-progress`", "### Progress and parents", "### Folding")
-      between("`:h tickbox-fold`", "### Folding", "### Commands")
+      between("`:h tickbox-fold`", "### Folding", "### Links")
+      between("`:h tickbox-links`", "### Links", "### Commands")
       between("`:h tickbox-tasks`", "## Task syntax", "## Recipes")
     end)
 
@@ -199,8 +218,10 @@ describe("docs", function()
       "tickbox-states",
       "tickbox-progress",
       "tickbox-fold",
+      "tickbox-links",
       "tickbox-tasks",
       "TickboxProgress",
+      "TickboxLink",
     }) do
       it("opens the doc for " .. tag, function()
         vim.cmd("help " .. vim.fn.escape(tag, " "))

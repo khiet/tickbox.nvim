@@ -3,8 +3,8 @@
 Checkboxes for the task lists in your markdown notes. `- [ ]` draws as a box,
 `- [x]` as a ticked box, and one key toggles the task under the cursor.
 
-Everything else in the buffer stays as you wrote it: no treesitter, no
-`conceallevel`, no default keymaps. If you already render whole documents with
+Everything else in the buffer stays as you wrote it: no treesitter or
+`conceallevel` unless you turn on `links`, and no default keymaps. If you already render whole documents with
 [render-markdown.nvim](https://github.com/MeanderingProgrammer/render-markdown.nvim)
 or [markview.nvim](https://github.com/OXY2DEV/markview.nvim), they draw
 checkboxes too and you do not need this. tickbox is for people who want the
@@ -20,12 +20,13 @@ boxes and nothing else.
 - `done/total` counts on parent tasks and headings.
 - Parents tick themselves once every child is done.
 - Headings with tasks fold, with native `za`, `zM` and `zR`.
-- No treesitter, no `conceallevel`, no default keymaps.
+- Links on task lines can draw as just their label, and `gx` still opens them.
+- No treesitter or `conceallevel` unless you turn on `links`, and no default keymaps.
 
 To see all of it at once:
 
 ```lua
-opts = { progress = true, auto_check_parent = true, fold = true }
+opts = { progress = true, auto_check_parent = true, fold = true, links = true }
 ```
 
 ## Requirements
@@ -89,6 +90,7 @@ require("tickbox").setup({
   progress = false,                            -- done/total on parents and headings
   auto_check_parent = false,                   -- keep parents in step with children
   fold = false,                                -- fold headings that have tasks
+  links = false,                               -- draw links on task lines as their label
 })
 ```
 
@@ -96,6 +98,7 @@ require("tickbox").setup({
 - `progress`: every parent task and heading with at least one counted task shows `done/total` at the end of its line, in `TickboxProgress`. See [Progress and parents](#progress-and-parents).
 - `auto_check_parent`: after a toggle, cycle or set, an ancestor whose counted descendants are all checked becomes `[x]`, and a checked ancestor with a descendant that is not becomes `[ ]`.
 - `fold`: headings that have tasks fold in attached buffers. Off, the plugin leaves every fold option untouched. See [Folding](#folding).
+- `links`: an inline link on a task line draws as its label, in `TickboxLink`. Off, the plugin leaves `conceallevel` and the treesitter highlighter alone. See [Links](#links).
 
 Each call starts from the defaults rather than the previous call's options.
 
@@ -119,6 +122,12 @@ With `progress = true`, every parent task and heading shows `done/total` for the
 ### Folding
 
 With `fold = true`, headings that have tasks under them fold with the native `za`, `zc`, `zM` and `zR`. It sets `foldmethod`, `foldexpr`, `foldtext` and `foldlevel` on attached buffers, and folds start open. A closed heading keeps its own text and highlighting and, with `progress`, its count; the rest of the line takes the `fold` item of `fillchars`. Full rules: `:h tickbox-fold`.
+
+### Links
+
+With `links = true`, `- [ ] review [ABC-123](https://example.com/ABC-123) today` draws as `review ABC-123 today`, with the label underlined. The text does not change, and `gx` opens the URL as usual. No other line changes appearance: plain bullets, prose, headings and fenced lines stay raw even when they hold links.
+
+The line being typed shows the raw link, which is how you edit a URL. It sets `conceallevel` and `concealcursor` on the window and replaces the buffer's treesitter highlighter with one that conceals nothing else, so it needs a treesitter highlighter on the buffer; without one, links stay raw. Full rules: `:h tickbox-links`.
 
 ### Commands
 
@@ -194,6 +203,7 @@ If your completion plugin confirms with `<CR>`, see [Recipes](#recipes) before b
 | `TickboxCancelled` | `Comment` |
 | `TickboxCheckedText` | None |
 | `TickboxProgress` | `Comment` |
+| `TickboxLink` | `Underlined` |
 
 All are defined with `default = true`, so a colorscheme or your own definition wins.
 

@@ -106,3 +106,81 @@ describe("parse.fenced", function()
     end)
   end
 end)
+
+describe("parse.links", function()
+  -- The line as it draws: each link reduced to its label.
+  local function drawn(line)
+    local out, at = {}, 0
+    for _, link in ipairs(parse.links(line, 0)) do
+      out[#out + 1] = line:sub(at + 1, link.start)
+      out[#out + 1] = line:sub(link.label_start + 1, link.label_end)
+      at = link.stop
+    end
+    out[#out + 1] = line:sub(at + 1)
+    return table.concat(out)
+  end
+
+  it("returns 0-indexed, end-exclusive ranges", function()
+    assert.are.same(
+      { { start = 4, label_start = 5, label_end = 6, stop = 10 } },
+      parse.links("see [a](u) now", 0)
+    )
+  end)
+
+  it("ignores everything before `from`", function()
+    assert.are.same({}, parse.links("[a](u) now", 1))
+    assert.are.same(1, #parse.links("[a](u) [b](v)", 6))
+  end)
+
+  local rendered = {
+    { "a label", "see [a b](https://x.io/a) now", "see a b now" },
+    { "several links", "[a](u) and [b](v)", "a and b" },
+    { "balanced parens in the url", "[a](https://x.io/a_(b)) now", "a now" },
+    { "an angle-bracket url", "[a](<https://x.io/a b>) now", "a now" },
+    { "a double-quoted title", '[a](u "t (x)") now', "a now" },
+    { "a single-quoted title", "[a](u 't') now", "a now" },
+    { "a parenthesized title", "[a](u (t)) now", "a now" },
+    { "spaces inside the parens", "[a]( u  't' ) now", "a now" },
+    { "balanced brackets in a label", "[a [b] c](u) now", "a [b] c now" },
+    { "a code span in a label", "[`]`](u) now", "`]` now" },
+    { "an escaped bracket in a label", "[a\\]b](u) now", "a\\]b now" },
+    { "a multibyte label", "[日本語](u) now", "日本語 now" },
+    { "a link after an unclosed bracket", "[ [a](u) now", "[ a now" },
+    { "the inner of a link in brackets", "[[a](u)] now", "[a] now" },
+    { "a link after an unmatched backtick", "` [a](u) now", "` a now" },
+    { "a link after an escaped backslash", "\\\\[a](u) now", "\\\\a now" },
+    { "a link after a code span", "`x` [a](u) now", "`x` a now" },
+  }
+  for _, case in ipairs(rendered) do
+    it("renders " .. case[1], function()
+      assert.are.equal(case[3], drawn(case[2]))
+    end)
+  end
+
+  local raw = {
+    { "an image", "![a](u) now" },
+    { "an image inside a link", "[![a](u)](v) now" },
+    { "a reference link", "[a][b] now" },
+    { "a shortcut reference", "[a] now" },
+    { "a bare url", "https://x.io/a now" },
+    { "an autolink", "<https://x.io/a> now" },
+    { "brackets inside an autolink", "<https://x.io/[a](u)> now" },
+    { "a link in a code span", "`[a](u)` now" },
+    { "a link in a double-backtick span", "`` ` [a](u) `` now" },
+    { "an empty label", "[](u) now" },
+    { "a blank label", "[ ](u) now" },
+    { "an empty url", "[a]() now" },
+    { "an empty angle url", "[a](<>) now" },
+    { "an unclosed url", "[a](u now" },
+    { "unbalanced parens in the url", "[a](u(b) now" },
+    { "an escaped opening bracket", "\\[a](u) now" },
+    { "a space inside the url", "[a](u v) now" },
+    { "an unclosed title", '[a](u "t) now' },
+    { "a space before the parens", "[a] (u) now" },
+  }
+  for _, case in ipairs(raw) do
+    it("leaves raw " .. case[1], function()
+      assert.are.same({}, parse.links(case[2], 0))
+    end)
+  end
+end)
