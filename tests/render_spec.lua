@@ -263,7 +263,7 @@ describe("rendering", function()
     end
 
     it("still hides it after the colorscheme changes", function()
-      -- Loading a colorscheme runs `hi clear`, which also resets the styled groups.
+      -- The default colorscheme runs `hi clear`, which also resets the styled groups.
       vim.cmd("colorscheme default")
       style_groups()
       assert_matches_plain_box("- [/] a")

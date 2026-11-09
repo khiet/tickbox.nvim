@@ -150,8 +150,8 @@ function M.start()
   define_highlights()
 
   vim.api.nvim_clear_autocmds({ group = group })
-  -- Loading a colorscheme runs `hi clear`, which restores only default links, so
-  -- TickboxPadding would be lost and the underline it hides would return.
+  -- A colorscheme's `hi clear` restores only default links, which would lose
+  -- TickboxPadding and bring back the underline it hides.
   vim.api.nvim_create_autocmd("ColorScheme", {
     group = group,
     callback = define_highlights,
