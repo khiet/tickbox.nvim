@@ -12,14 +12,10 @@ local interiors = { unchecked = " ", in_progress = "/", checked = "x", cancelled
 -- Brings the ancestors of the tasks on `edited` lines in line with their descendants: an
 -- ancestor whose counted descendants are all checked becomes checked, and a checked one
 -- with a descendant that is not becomes unchecked. Cancelled ancestors are left alone,
--- and so are edited tasks, so a range never undoes its own edit. Must run in the same
--- call as the edits, so all of them stay one undo step.
-local function propagate(edited)
+-- and so is every line in `in_range`, edited or not, so a range never undoes its own
+-- result. Must run in the same call as the edits, so all of them stay one undo step.
+local function propagate(edited, in_range)
   local tasks = tree.get(0).tasks
-  local is_edited = {}
-  for _, lnum in ipairs(edited) do
-    is_edited[lnum] = true
-  end
   local pending = {}
   for _, lnum in ipairs(edited) do
     local parent = tasks[lnum].parent
@@ -28,7 +24,7 @@ local function propagate(edited)
       parent = tasks[parent].parent
     end
   end
-  for lnum in pairs(is_edited) do
+  for lnum in pairs(in_range) do
     pending[lnum] = nil
   end
   -- Descendants sit below their ancestors, so going bottom-up settles every ancestor's
@@ -86,10 +82,11 @@ local function rewrite_range(next_interior, first, last)
   -- Fence state only depends on the lines above, so the rest need not be read.
   local lines = vim.api.nvim_buf_get_lines(0, 0, last, false)
   local fenced = parse.fenced(lines)
-  local edited = {}
+  local edited, in_range = {}, {}
   for lnum = math.max(first, 1), #lines do
     local task = not fenced[lnum] and parse.classify(lines[lnum])
     if task then
+      in_range[lnum] = true
       local row = lnum - 1
       local interior = next_interior[task.state]
       if interior then
@@ -99,7 +96,7 @@ local function rewrite_range(next_interior, first, last)
     end
   end
   if #edited > 0 and render.options().auto_check_parent then
-    propagate(edited)
+    propagate(edited, in_range)
   end
   return #edited > 0
 end
