@@ -1,6 +1,7 @@
 -- Draws task boxes with a decoration provider. Marks are ephemeral, so they exist
 -- only for the redraw that placed them: there is nothing to clear or keep in sync,
 -- and text changes, undo, :e, folds and scrolling are covered by redraws alone.
+local buffers = require("tickbox.buffers")
 local state = require("tickbox.state")
 local tree = require("tickbox.tree")
 
@@ -9,12 +10,6 @@ local M = {}
 local ns = vim.api.nvim_create_namespace("tickbox")
 local group = vim.api.nvim_create_augroup("tickbox", { clear = true })
 
-local config
--- Buffers whose filetype is in config.filetypes. Keyed by buffer number.
-local attached = {}
--- Buffers turned off with `disable`. Separate from `attached` so the choice survives the
--- FileType event a :e reload fires, and lasts until `enable` or the buffer is wiped.
-local disabled = {}
 -- Buffers with an nvim_buf_attach listener, which repaints when progress counts change.
 -- Each holds `counts`, the tree.counts table the listener last saw.
 local watched = {}
@@ -35,7 +30,7 @@ local function watch(buf)
   watched[buf] = watch_state
   vim.api.nvim_buf_attach(buf, false, {
     on_lines = function()
-      if not (config.progress and attached[buf]) then
+      if not (buffers.options().progress and buffers.is_attached(buf)) then
         watched[buf] = nil
         return true
       end
@@ -51,9 +46,8 @@ local function watch(buf)
   })
 end
 
-local function refresh(buf)
-  attached[buf] = vim.tbl_contains(config.filetypes, vim.bo[buf].filetype) or nil
-  if attached[buf] and config.progress then
+local function watch_if_counted(buf)
+  if buffers.options().progress and buffers.is_attached(buf) then
     watch(buf)
   end
 end
@@ -89,7 +83,7 @@ local function draw(buf, row)
     return
   end
 
-  local icon = config.icons[task.state]
+  local icon = buffers.options().icons[task.state]
   -- Pad to the prefix's width so the task text stays in its raw column.
   local padding = (task.prefix_end - task.prefix_start) - vim.fn.strdisplaywidth(icon)
   vim.api.nvim_buf_set_extmark(buf, ns, row, task.prefix_start, {
@@ -128,7 +122,7 @@ end
 local function current_target()
   local mode = vim.api.nvim_get_mode().mode:sub(1, 1)
   local buf = vim.api.nvim_get_current_buf()
-  if (mode == "i" or mode == "R") and attached[buf] then
+  if (mode == "i" or mode == "R") and buffers.is_attached(buf) then
     local win = vim.api.nvim_get_current_win()
     return { win = win, buf = buf, row = vim.api.nvim_win_get_cursor(win)[1] - 1 }
   end
@@ -146,61 +140,21 @@ local function update_revealed()
   repaint(revealed)
 end
 
-local function resolve(buf)
-  return (buf == nil or buf == 0) and vim.api.nvim_get_current_buf() or buf
-end
-
--- Whether the buffer's filetype is configured, regardless of `disable`.
-function M.is_attached(buf)
-  return attached[resolve(buf)] == true
-end
-
--- Whether the buffer renders: its filetype is configured and it has not been disabled.
-function M.is_enabled(buf)
-  buf = resolve(buf)
-  return attached[buf] == true and not disabled[buf]
-end
-
-local function set_disabled(buf, value)
-  buf = resolve(buf)
-  if not vim.api.nvim_buf_is_valid(buf) then
-    error("Tickbox: invalid buffer: " .. tostring(buf), 0)
-  end
-  disabled[buf] = value
-  vim.api.nvim__redraw({ buf = buf, valid = false })
-end
-
--- Clears `disable`. A buffer whose filetype is not configured still does not render.
-function M.enable(buf)
-  set_disabled(buf, nil)
-end
-
-function M.disable(buf)
-  set_disabled(buf, true)
-end
-
--- The options from the latest `start`.
-function M.options()
-  return config
-end
-
--- Safe to call repeatedly; the latest config replaces the previous one.
-function M.start(cfg)
-  config = cfg
+-- Safe to call repeatedly. Expects `buffers.setup` to have run with the options to
+-- draw with, so that the FileType autocmd here fires after the one that attaches.
+function M.start()
   define_highlights()
 
   vim.api.nvim_clear_autocmds({ group = group })
   vim.api.nvim_create_autocmd("FileType", {
     group = group,
     callback = function(args)
-      refresh(args.buf)
+      watch_if_counted(args.buf)
     end,
   })
   vim.api.nvim_create_autocmd("BufWipeout", {
     group = group,
     callback = function(args)
-      attached[args.buf] = nil
-      disabled[args.buf] = nil
       tree.forget(args.buf)
     end,
   })
@@ -212,7 +166,7 @@ function M.start(cfg)
 
   -- Buffers opened before the plugin loaded missed their FileType event.
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-    refresh(buf)
+    watch_if_counted(buf)
   end
 
   -- setup may run mid-insert, where no mode change or cursor move follows.
@@ -223,11 +177,11 @@ function M.start(cfg)
       local hl = vim.api.nvim_get_hl(0, { name = "TickboxCheckedText" })
       hl.default = nil
       style_checked_text = next(hl) ~= nil
-      return M.is_enabled(buf)
+      return buffers.is_enabled(buf)
     end,
     on_line = function(_, win, buf, row)
       -- Eol text covers nothing, so counts stay on the line being typed.
-      if config.progress then
+      if buffers.options().progress then
         draw_progress(buf, row)
       end
       if not (revealed and revealed.win == win and revealed.row == row) then
