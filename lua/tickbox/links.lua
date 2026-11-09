@@ -1,7 +1,8 @@
 -- Draws inline links on task lines as their label. Hiding text takes 'conceallevel' above
 -- 0, where the stock markdown queries would also conceal every other line, so a buffer
 -- with this on gets a treesitter highlighter whose queries conceal nothing. Only render's
--- marks then hide anything. The queries are a private Neovim API, kept to this module.
+-- marks then hide anything. The highlighter's `queries` option is a private Neovim API,
+-- kept to this module.
 local buffers = require("tickbox.buffers")
 
 local M = {}
@@ -10,8 +11,7 @@ local group = vim.api.nvim_create_augroup("tickbox_links", { clear = true })
 
 -- Also how a window is recognised as ours, so a window the user set to conceal is left
 -- alone. Means the same as "nc": conceal the cursor line in normal and command mode, so
--- lines keep their width as the cursor moves. Options outlast a window variable through
--- :split and through a buffer's saved options on :buffer.
+-- lines keep their width as the cursor moves. :split copies options, not window variables.
 local CONCEALCURSOR = "cn"
 
 -- By buffer, the highlighter this module started.
@@ -128,8 +128,8 @@ local function sync(buf)
     return
   end
 
-  -- The highlighter is per buffer, so a window the user set to conceal keeps it stock for
-  -- them all, and the other windows stay raw, since at this level stock conceals every line.
+  -- The highlighter is per buffer. A window the user set to conceal keeps it stock, so the
+  -- buffer's other windows stay raw: at this level stock conceals every line.
   local ours, theirs = {}, false
   for _, win in ipairs(wins) do
     if vim.wo[win].conceallevel == 0 or is_ours(win) then

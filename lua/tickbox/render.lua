@@ -173,9 +173,9 @@ end
 -- nvim__redraw is experimental, but nothing public repaints a single line and it is
 -- what lets a mode change avoid repainting the whole window.
 --
--- In a window with 'conceallevel' above 0, a repaint during the mode change would place
--- the cursor from the concealed column, off the raw line it is entering, until the next
--- move. Neovim recomputes the column once the mode change is over, so this waits for that.
+-- In a window with 'conceallevel' above 0, a repaint during the mode change leaves the
+-- cursor at its concealed column on the raw line until the next move, so it waits until
+-- the mode change is over.
 local function repaint(target)
   if not target then
     return
