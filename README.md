@@ -63,7 +63,7 @@ require("tickbox").setup({
 ```
 
 - `progress`: every parent task and heading with at least one counted task shows `done/total` at the end of its line, in `TickboxProgress`. See [Progress and parents](#progress-and-parents).
-- `auto_check_parent`: after a toggle or cycle, an ancestor whose counted descendants are all checked becomes `[x]`, and a checked ancestor with a descendant that is not becomes `[ ]`.
+- `auto_check_parent`: after a toggle, cycle or set, an ancestor whose counted descendants are all checked becomes `[x]`, and a checked ancestor with a descendant that is not becomes `[ ]`.
 
 Each call starts from the defaults rather than the previous call's options. Below Neovim 0.10 it raises an error naming the minimum version. Without a Nerd Font, try `icons = { unchecked = "☐", in_progress = "◐", checked = "☑", cancelled = "☒" }`.
 
@@ -78,14 +78,14 @@ Each call starts from the defaults rather than the previous call's options. Belo
 | `[x]` or `[X]` | checked | `checked` | `TickboxChecked` |
 | `[-]` | cancelled | `cancelled` | `TickboxCancelled` |
 
-Toggling is a done/not-done switch: a checked task becomes `[ ]` and every other task becomes `[x]`. Cycling walks `[ ]`, `[/]`, `[x]`, `[-]` and back to `[ ]`; `[X]` cycles as checked.
+Toggling is a done/not-done switch: a checked task becomes `[ ]` and every other task becomes `[x]`. Cycling walks `[ ]`, `[/]`, `[x]`, `[-]` and back to `[ ]`; `[X]` cycles as checked. Setting goes straight to the state you name and is not a toggle: a task already in that state is left alone, and `[X]` stays as written when set to `checked`.
 
 ### Progress and parents
 
 - A task's descendants are the task lines after it with a greater indentation, up to the first non-blank line indented the same or less. Blank lines and deeper non-task lines do not end them. A tab counts to the next multiple of four columns.
 - A heading (`#` to `######`) holds every task until the next heading of the same or a higher level, so `## A` includes the tasks under a `### B` inside it.
 - Counts cover all descendants, not only direct children. `done` is checked tasks and `total` is unchecked, in-progress and checked ones; cancelled tasks are left out, and a total of 0 shows nothing.
-- With `auto_check_parent`, the change walks up through every ancestor. It never changes a task's descendants, never touches a cancelled ancestor, and never uses headings. A toggle or cycle and the parents it updates are one undo step, and a range updates parents once after all its edits.
+- With `auto_check_parent`, the change walks up through every ancestor. It never changes a task's descendants, never touches a cancelled ancestor, and never uses headings. A toggle, cycle or set and the parents it updates are one undo step, and a range updates parents once after all its edits, leaving the tasks in the range as the range set them.
 - Fenced lines are ignored, and counts follow `:Tickbox disable` and `enable` like the icons. They stay visible on the line being typed.
 
 ### Commands
@@ -94,18 +94,20 @@ Toggling is a done/not-done switch: a checked task becomes `[ ]` and every other
 | --- | --- |
 | `:Tickbox toggle` | Toggle the cursor line, or every task in a range such as `:'<,'>Tickbox toggle` |
 | `:Tickbox cycle` | Cycle the cursor line, or every task in a range such as `:'<,'>Tickbox cycle` |
+| `:Tickbox set <state>` | Set the cursor line, or every task in a range such as `:'<,'>Tickbox set cancelled`, to `unchecked`, `in_progress`, `checked` or `cancelled` |
 | `:Tickbox enable` | Render the current buffer again |
 | `:Tickbox disable` | Show the raw markdown of the current buffer, until `:Tickbox enable` or the buffer is wiped |
 
-Toggling and cycling keep working while rendering is disabled.
+Toggling, cycling and setting keep working while rendering is disabled.
 
 ### Mappings
 
-The plugin ships no default keymap. `<Plug>(tickbox-toggle)` and `<Plug>(tickbox-cycle)` work in normal mode, where `.` repeats them, and in visual mode, where they act on every selected task as one undo step:
+The plugin ships no default keymap. `<Plug>(tickbox-toggle)`, `<Plug>(tickbox-cycle)`, `<Plug>(tickbox-set-unchecked)`, `<Plug>(tickbox-set-in-progress)`, `<Plug>(tickbox-set-checked)` and `<Plug>(tickbox-set-cancelled)` work in normal mode, where `.` repeats them, and in visual mode, where they act on every selected task as one undo step:
 
 ```lua
 vim.keymap.set({ "n", "x" }, "<leader>t", "<Plug>(tickbox-toggle)")
 vim.keymap.set({ "n", "x" }, "<leader>c", "<Plug>(tickbox-cycle)")
+vim.keymap.set({ "n", "x" }, "<leader>p", "<Plug>(tickbox-set-in-progress)")
 ```
 
 ### Continuing a list
@@ -168,6 +170,8 @@ vim.api.nvim_create_autocmd("FileType", {
 | `toggle_range(first, last)` | Toggle every task on these 1-indexed, inclusive lines as one undo step. Returns `true` if any line changed |
 | `cycle()` | Cycle the cursor line. Returns what `toggle()` would |
 | `cycle_range(first, last)` | Cycle every task on these lines as one undo step. Returns what `toggle_range` would |
+| `set(state)` | Set the cursor line to `"unchecked"`, `"in_progress"`, `"checked"` or `"cancelled"`. Returns `true` if it edited the line, `false` if the task is already in that state or in the cases where `toggle()` returns `false`. Raises an error on an unknown state |
+| `set_range(state, first, last)` | Set every task on these lines as one undo step. Tasks already in the state are left alone. Returns `true` if any line changed. Raises an error on an unknown state |
 | `enable(buf?)` | Clear `disable`. A filetype that is not configured still does not render |
 | `disable(buf?)` | Stop rendering the buffer |
 | `is_enabled(buf?)` | Whether the buffer renders: its filetype is configured and it is not disabled |
