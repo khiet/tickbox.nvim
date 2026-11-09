@@ -7,7 +7,7 @@ end
 
 describe("tree", function()
   it("is the only module that reads buffer lines and classifies tasks", function()
-    for _, name in ipairs({ "render", "toggle", "continue" }) do
+    for _, name in ipairs({ "render", "toggle", "continue", "plan" }) do
       local source = table.concat(vim.fn.readfile(("lua/tickbox/%s.lua"):format(name)), "\n")
       assert.is_nil(source:find("tickbox.parse", 1, true), name .. " requires parse")
       assert.is_nil(source:find("nvim_buf_get_lines", 1, true), name .. " reads buffer lines")
@@ -102,6 +102,37 @@ describe("tree", function()
     local t = tree.build({ "- ```", "- [ ] sample", "```", "- [ ] real" })
     assert.is_nil(t.tasks[2])
     assert.are.equal("unchecked", t.tasks[4].state)
+  end)
+
+  -- The planner counts over the tasks table with the edits it has planned so far, so
+  -- its rule must be the one `build` applies to the buffer as it stands.
+  local counted = {
+    { "- [ ] parent", "  - [x] a", "  - [ ] b", "  - [/] c", "  - [-] d" },
+    { "- [ ] top", "  - [ ] mid", "    - [x] leaf" },
+    { "- [ ] parent", "  - [x] a", "", "    continued text", "  - [ ] b" },
+    { "- [ ] parent", "  - [x] a", "text", "  - [ ] b" },
+    { "- [ ] one", "- [x] two" },
+    { "  - [ ] parent", "\t- [x] child" },
+    { "- [ ] parent", "  ## H", "  - [x] a" },
+    { "- [ ] parent", "  - [-] a" },
+    { "# H", "- [ ] parent", "  ```", "  - [x] sample", "# fenced", "  ```", "  - [x] real" },
+  }
+  for i, lines in ipairs(counted) do
+    it("counts a task's children the way build does, case " .. i, function()
+      local t = tree.build(lines)
+      for lnum, task in pairs(t.tasks) do
+        local done, total = tree.count(t.tasks, task.children)
+        local built = t.counts[lnum] or { done = 0, total = 0 }
+        assert.are.same({ built.done, built.total }, { done, total }, "line " .. lnum)
+      end
+    end)
+  end
+
+  it("counts an overlaid state in place of the task's own", function()
+    local t = tree.build({ "- [ ] p", "  - [ ] a", "  - [x] b", "    - [-] c" })
+    assert.are.same({ 2, 2 }, { tree.count(t.tasks, t.tasks[1].children, { [2] = "checked" }) })
+    assert.are.same({ 1, 3 }, { tree.count(t.tasks, t.tasks[1].children, { [4] = "unchecked" }) })
+    assert.are.same({ 0, 1 }, { tree.count(t.tasks, t.tasks[1].children, { [2] = "cancelled", [3] = "unchecked" }) })
   end)
 
   it("links tasks to their parent and children", function()
