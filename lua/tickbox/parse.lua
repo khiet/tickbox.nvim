@@ -3,7 +3,7 @@ local state = require("tickbox.state")
 
 local M = {}
 
--- A pattern set of every interior character that reads as a state.
+-- Non-word interiors are escaped, since a bare `-` inside a set would form a range.
 local interior_set = ""
 for char in pairs(state.of_interior) do
   interior_set = interior_set .. (char:match("%w") and char or "%" .. char)

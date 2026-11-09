@@ -1,7 +1,6 @@
 local h = require("tests.helpers")
 local state = require("tickbox.state")
 
--- Collects `field` of every state, in cycle order.
 local function per_state(field)
   local values = {}
   for _, name in ipairs(state.order) do
