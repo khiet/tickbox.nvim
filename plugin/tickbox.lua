@@ -6,8 +6,8 @@ vim.g.loaded_tickbox = true
 require("tickbox")._ensure_started()
 
 -- `operator` names the function in tickbox.toggle that normal mode runs; it is called
--- with the motion type, so it must take no other arguments. `run_range` acts on the
--- selected lines in visual mode.
+-- with the motion type, which it must ignore. `run_range` acts on the selected lines in
+-- visual mode.
 local function map_action(name, operator, run_range, normal_desc, visual_desc)
   local lhs = ("<Plug>(tickbox-%s)"):format(name)
   vim.keymap.set("n", lhs, function()

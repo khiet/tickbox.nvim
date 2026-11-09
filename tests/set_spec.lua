@@ -89,7 +89,6 @@ describe("set", function()
     assert.are.same({ "- [/] foo" }, lines())
   end)
 
-  -- An invalid state is a caller bug, so it raises even where a valid one returns false.
   local invalid = {
     { "an unknown state", "bogus", "Tickbox: unknown state: bogus" },
     { "a missing state", nil, "Tickbox: unknown state: nil" },
@@ -206,7 +205,7 @@ describe("<Plug>(tickbox-set-*)", function()
   for _, case in ipairs(mappings) do
     local plug = "<Plug>(tickbox-set-" .. case[1] .. ")"
     local set = "- [" .. case[2] .. "] "
-    -- A start distinct from every target, so each mapping has something to change.
+    -- A start other than the target, so the mapping has something to change.
     local start = case[2] == "/" and "- [x] " or "- [/] "
 
     it(plug .. " sets the cursor line, and . repeats it", function()
