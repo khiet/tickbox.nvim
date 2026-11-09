@@ -23,7 +23,6 @@ local function heading_level(line)
 end
 
 -- Returns, for 1-indexed `lines` from the top of the buffer:
--- `fenced`: the parse.fenced set.
 -- `tasks`: by line number, each parse.classify result plus `lnum`, `length` (the line's
 --   byte length), `indent` (its width in columns), `parent` (the line number of the
 --   nearest enclosing task, or nil) and `children` (line numbers of direct child tasks).
@@ -91,7 +90,7 @@ function M.build(lines)
     end
   end
 
-  return { fenced = fenced, tasks = tasks, counts = counts }
+  return { tasks = tasks, counts = counts }
 end
 
 -- The build result for the buffer's current text. Callers must not modify it.
