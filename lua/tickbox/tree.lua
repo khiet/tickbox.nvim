@@ -22,12 +22,41 @@ local function heading_level(line)
   return hashes and #hashes <= 6 and #hashes or nil
 end
 
+-- The done/total rule. Returns `done, total` over the tasks on `lnums`: cancelled tasks
+-- are left out, checked tasks are done. `overlay`, by line number, gives states to count
+-- in place of the tasks' own, so a caller planning edits can count the tree as it will
+-- be without rebuilding it.
+function M.count(tasks, lnums, overlay)
+  local done, total = 0, 0
+  for _, lnum in ipairs(lnums) do
+    local name = overlay and overlay[lnum] or tasks[lnum].state
+    if state.counts(name) then
+      total = total + 1
+      done = done + (state.is_done(name) and 1 or 0)
+    end
+  end
+  return done, total
+end
+
+-- The line numbers of every task under the task on `lnum`, in buffer order.
+function M.descendants(tasks, lnum)
+  local found = {}
+  local function walk(parent)
+    for _, child in ipairs(tasks[parent].children) do
+      table.insert(found, child)
+      walk(child)
+    end
+  end
+  walk(lnum)
+  return found
+end
+
 -- Returns, for 1-indexed `lines` from the top of the buffer:
 -- `tasks`: by line number, each parse.classify result plus `lnum`, `length` (the line's
 --   byte length), `indent` (its width in columns), `parent` (the line number of the
 --   nearest enclosing task, or nil) and `children` (line numbers of direct child tasks).
 -- `counts`: by line number, `{ done, total }` for each task and heading with at least one
---   counted task under it. Counts cover all descendants; cancelled tasks are left out.
+--   counted task under it, by the rule `count` applies.
 --
 -- A task's descendants are the task lines after it with a greater indentation, up to the
 -- first non-blank line indented the same or less. A heading's tasks run to the next
@@ -35,18 +64,10 @@ end
 -- nor end a run.
 function M.build(lines)
   local fenced = parse.fenced(lines)
-  local tasks, counts = {}, {}
-  -- Enclosing tasks and headings, outermost first.
-  local open_tasks, open_headings = {}, {}
-
-  local function tally(lnum, checked)
-    local count = counts[lnum] or { done = 0, total = 0 }
-    counts[lnum] = count
-    count.total = count.total + 1
-    if checked then
-      count.done = count.done + 1
-    end
-  end
+  local tasks = {}
+  -- Enclosing tasks and headings, outermost first. A heading collects every task line
+  -- under it in `tasks`, since a task's subtree may run on past the heading's end.
+  local open_tasks, open_headings, headings = {}, {}, {}
 
   for lnum, line in ipairs(lines) do
     if not fenced[lnum] and line:find("%S") then
@@ -60,7 +81,9 @@ function M.build(lines)
         while #open_headings > 0 and open_headings[#open_headings].level >= level do
           table.remove(open_headings)
         end
-        table.insert(open_headings, { lnum = lnum, level = level })
+        local heading = { lnum = lnum, level = level, tasks = {} }
+        table.insert(open_headings, heading)
+        table.insert(headings, heading)
       else
         local task = parse.classify(line)
         if task then
@@ -74,20 +97,27 @@ function M.build(lines)
             table.insert(parent.children, lnum)
           end
           tasks[lnum] = task
-
-          if state.counts(task.state) then
-            local checked = state.is_done(task.state)
-            for _, open in ipairs(open_tasks) do
-              tally(open.lnum, checked)
-            end
-            for _, open in ipairs(open_headings) do
-              tally(open.lnum, checked)
-            end
+          for _, heading in ipairs(open_headings) do
+            table.insert(heading.tasks, lnum)
           end
           table.insert(open_tasks, task)
         end
       end
     end
+  end
+
+  local counts = {}
+  local function record(lnum, lnums)
+    local done, total = M.count(tasks, lnums)
+    if total > 0 then
+      counts[lnum] = { done = done, total = total }
+    end
+  end
+  for lnum in pairs(tasks) do
+    record(lnum, M.descendants(tasks, lnum))
+  end
+  for _, heading in ipairs(headings) do
+    record(heading.lnum, heading.tasks)
   end
 
   return { tasks = tasks, counts = counts }
