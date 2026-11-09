@@ -2,6 +2,7 @@
 -- only for the redraw that placed them: there is nothing to clear or keep in sync,
 -- and text changes, undo, :e, folds and scrolling are covered by redraws alone.
 local buffers = require("tickbox.buffers")
+local fold = require("tickbox.fold")
 local state = require("tickbox.state")
 local tree = require("tickbox.tree")
 
@@ -10,8 +11,8 @@ local M = {}
 local ns = vim.api.nvim_create_namespace("tickbox")
 local group = vim.api.nvim_create_augroup("tickbox", { clear = true })
 
--- Buffers with an nvim_buf_attach listener, which repaints when progress counts change.
--- Each holds `counts`, the tree.counts table the listener last saw.
+-- Buffers with an nvim_buf_attach listener, which acts when counts or fold levels change.
+-- Each holds `counts` and `folds`, the tree tables the listener last saw.
 local watched = {}
 -- The line left raw for typing in insert or replace mode, { win, buf, row }. Nil when
 -- not typing or when the current buffer is not attached.
@@ -20,23 +21,34 @@ local revealed
 -- with an empty group still changes the screen attributes, so it is skipped then.
 local style_checked_text = false
 
+local function needs_watch(buf)
+  local options = buffers.options()
+  return (options.progress or options.fold) and buffers.is_attached(buf)
+end
+
 -- An edit repaints only the lines it touched, but a count sits on a parent or heading
--- line that may be elsewhere. So any change to the counts repaints the buffer's windows.
+-- line that may be elsewhere. So any change to the counts repaints the buffer's windows,
+-- and any change to the fold levels refreshes their folds, which go stale the same way.
 local function watch(buf)
   if watched[buf] or not vim.api.nvim_buf_is_loaded(buf) then
     return
   end
-  local watch_state = {}
+  local watch_state = { folds = tree.get(buf).folds }
   watched[buf] = watch_state
   vim.api.nvim_buf_attach(buf, false, {
-    on_lines = function()
-      if not (buffers.options().progress and buffers.is_attached(buf)) then
+    on_lines = function(_, _, _, first, last, new_last)
+      if not needs_watch(buf) then
         watched[buf] = nil
         return true
       end
-      local counts = tree.get(buf).counts
-      if not vim.deep_equal(counts, watch_state.counts) then
-        watch_state.counts = counts
+      local options = buffers.options()
+      local current = tree.get(buf)
+      if options.fold and not vim.deep_equal(current.folds, watch_state.folds) then
+        fold.update(buf, watch_state.folds, current.folds, first, last, new_last)
+        watch_state.folds = current.folds
+      end
+      if options.progress and not vim.deep_equal(current.counts, watch_state.counts) then
+        watch_state.counts = current.counts
         vim.api.nvim__redraw({ buf = buf, valid = false })
       end
     end,
@@ -46,8 +58,8 @@ local function watch(buf)
   })
 end
 
-local function watch_if_counted(buf)
-  if buffers.options().progress and buffers.is_attached(buf) then
+local function watch_if_needed(buf)
+  if needs_watch(buf) then
     watch(buf)
   end
 end
@@ -67,16 +79,32 @@ local function define_highlights()
   vim.api.nvim_set_hl(0, "TickboxPadding", { nocombine = true })
 end
 
-local function draw_progress(buf, row)
-  local count = tree.get(buf).counts[row + 1]
-  if count then
-    vim.api.nvim_buf_set_extmark(buf, ns, row, 0, {
-      ephemeral = true,
-      virt_text = { { ("%d/%d"):format(count.done, count.total), "TickboxProgress" } },
-      virt_text_pos = "eol",
-      hl_mode = "combine",
-    })
+local function draw_progress(win, buf, row)
+  local current = tree.get(buf)
+  local lnum = row + 1
+  local count = current.counts[lnum]
+  if not count then
+    return
   end
+  local text = ("%d/%d"):format(count.done, count.total)
+  local mark = {
+    ephemeral = true,
+    virt_text = { { text, "TickboxProgress" } },
+    virt_text_pos = "eol",
+    hl_mode = "combine",
+  }
+
+  -- Asking whether a window has a line folded is a window switch, so only a line that
+  -- can start a heading fold pays for it, not every parent task on every redraw.
+  if buffers.options().fold and current.folds[lnum]:sub(1, 1) == ">" then
+    local col = fold.closed_count_col(win, lnum)
+    if col then
+      mark.virt_text = { { " " }, { text, "TickboxProgress" } }
+      mark.virt_text_pos = "overlay"
+      mark.virt_text_win_col = col
+    end
+  end
+  vim.api.nvim_buf_set_extmark(buf, ns, row, 0, mark)
 end
 
 local function draw(buf, row)
@@ -159,7 +187,7 @@ function M.start()
   vim.api.nvim_create_autocmd("FileType", {
     group = group,
     callback = function(args)
-      watch_if_counted(args.buf)
+      watch_if_needed(args.buf)
     end,
   })
   vim.api.nvim_create_autocmd("BufWipeout", {
@@ -176,7 +204,7 @@ function M.start()
 
   -- Buffers opened before the plugin loaded missed their FileType event.
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-    watch_if_counted(buf)
+    watch_if_needed(buf)
   end
 
   -- setup may run mid-insert, where no mode change or cursor move follows.
@@ -192,7 +220,7 @@ function M.start()
     on_line = function(_, win, buf, row)
       -- Eol text covers nothing, so counts stay on the line being typed.
       if buffers.options().progress then
-        draw_progress(buf, row)
+        draw_progress(win, buf, row)
       end
       if not (revealed and revealed.win == win and revealed.row == row) then
         draw(buf, row)

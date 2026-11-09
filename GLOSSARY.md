@@ -16,5 +16,6 @@ Terms the code and its tickets use. Each names one concept; use it, not a synony
 - **Propagate** (auto-check): after an edit, bring ancestors in line with their descendants. Never changes descendants, cancelled ancestors or headings.
 - **Attached**: a buffer whose filetype is in the configured `filetypes`. Toggling, cycling, setting and continuation work only in attached buffers.
 - **Disabled**: an attached buffer whose rendering was turned off with `disable`. Editing actions ignore it.
+- **Foldable heading**: a heading with at least one task under it, cancelled or not. With `fold` on it has a fold, running through the line before the next heading of the same or a higher level. Its **fold level** is the number of foldable headings open at it, not its `#`s.
 - **Revealed line**: the cursor line in insert or replace mode, drawn raw so the typed text is visible.
 - **Continue**: start a new unchecked task on the next line from an unordered task line, on Enter or `o`/`O`. Enter on a task with no text ends the list instead.

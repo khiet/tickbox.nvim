@@ -53,20 +53,28 @@ function M.set_range(name, first, last)
   return rewrite_range(plan.set(name), first, last)
 end
 
+-- The line the cursor is seen on. In a closed fold that is the fold's first line, whatever
+-- line the cursor last had, so an edit never lands on a line the user cannot see.
+local function cursor_line()
+  local lnum = vim.api.nvim_win_get_cursor(0)[1]
+  local closed = vim.fn.foldclosed(lnum)
+  return closed ~= -1 and closed or lnum
+end
+
 -- Acts on the cursor line, with the same results as the range form, so a mapping can
 -- fall through to another action on false.
 function M.toggle()
-  local lnum = vim.api.nvim_win_get_cursor(0)[1]
+  local lnum = cursor_line()
   return M.toggle_range(lnum, lnum)
 end
 
 function M.cycle()
-  local lnum = vim.api.nvim_win_get_cursor(0)[1]
+  local lnum = cursor_line()
   return M.cycle_range(lnum, lnum)
 end
 
 function M.set(name)
-  local lnum = vim.api.nvim_win_get_cursor(0)[1]
+  local lnum = cursor_line()
   return M.set_range(name, lnum, lnum)
 end
 

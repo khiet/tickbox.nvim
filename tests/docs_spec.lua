@@ -39,6 +39,9 @@ local surface = {
   "TickboxProgress",
   "progress = false",
   "auto_check_parent = false",
+  "fold = false",
+  "foldexpr",
+  "fillchars",
   "same or a higher level",
   "greater indentation",
   "DiagnosticOk",
@@ -125,6 +128,7 @@ describe("docs", function()
       "TickboxCheckedText",
       "tickbox-states",
       "tickbox-progress",
+      "tickbox-fold",
       "TickboxProgress",
     }) do
       it("opens the doc for " .. tag, function()

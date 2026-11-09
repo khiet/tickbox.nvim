@@ -152,4 +152,62 @@ describe("tree", function()
     assert.are.same({ 1, 3 }, { tree.count(t.tasks, under_p, { [4] = "unchecked" }) })
     assert.are.same({ 0, 1 }, { tree.count(t.tasks, under_p, { [2] = "cancelled", [3] = "unchecked" }) })
   end)
+
+  describe("folds", function()
+    local function folds(lines)
+      return tree.build(lines).folds
+    end
+
+    it("runs a heading's fold through prose and trailing blanks", function()
+      assert.are.same(
+        { ">1", "1", "1", "1", ">1", "1" },
+        folds({ "# A", "text", "- [ ] a", "", "# B", "- [ ] b" })
+      )
+    end)
+
+    it("is level zero with no foldable heading open", function()
+      assert.are.same({ "0", "0", "0" }, folds({ "text", "# H", "text" }))
+    end)
+
+    it("counts open foldable headings, not hashes", function()
+      assert.are.same({ ">1", "1" }, folds({ "### Lone", "- [ ] a" }))
+      assert.are.same({ ">1", ">2", "2" }, folds({ "# A", "### B", "- [ ] a" }))
+    end)
+
+    it("nests and closes back to the enclosing heading", function()
+      assert.are.same(
+        { ">1", ">2", "2", ">2", "2", ">1", "1" },
+        folds({ "# A", "## B", "- [ ] b", "## C", "- [ ] c", "# D", "- [ ] d" })
+      )
+    end)
+
+    it("folds a task-free heading with its parent", function()
+      assert.are.same({ ">1", "1", "1", "1" }, folds({ "# A", "- [ ] a", "## Notes", "text" }))
+    end)
+
+    it("ends a fold at a task-free heading of the same level", function()
+      assert.are.same({ ">1", "1", "0", "0" }, folds({ "# A", "- [ ] a", "# B", "text" }))
+      assert.are.same({ ">1", ">2", "2", "1", "1" }, folds({ "# A", "## B", "- [ ] b", "## C", "text" }))
+    end)
+
+    it("folds a heading whose only tasks are cancelled", function()
+      assert.are.same({ ">1", "1" }, folds({ "# A", "- [-] a" }))
+    end)
+
+    it("ignores fenced headings and fenced tasks", function()
+      assert.are.same(
+        { "0", "0", "0", "0", "0" },
+        folds({ "# A", "```", "- [ ] sample", "# fenced", "```" })
+      )
+      assert.are.same(
+        { ">1", "1", "1", "1", "1" },
+        folds({ "# A", "- [ ] a", "```", "# fenced", "```" })
+      )
+    end)
+
+    it("only recognises ATX headings", function()
+      assert.are.same({ "0", "0", "0" }, folds({ "Title", "===", "- [ ] a" }))
+      assert.are.same({ "0", "0" }, folds({ "####### seven", "- [ ] a" }))
+    end)
+  end)
 end)

@@ -51,12 +51,40 @@ function M.descendants(tasks, lnum)
   return found
 end
 
+-- The 'foldexpr' result for each line. A heading is foldable once it has any task under
+-- it, cancelled or not, so this needs `headings` complete. The level is the number of
+-- open foldable headings, not the heading's `#`s, so levels have no gaps.
+local function fold_levels(line_count, headings)
+  local levels = {}
+  local open = {}
+  local next_heading = 1
+  for lnum = 1, line_count do
+    local heading = headings[next_heading]
+    if heading and heading.lnum == lnum then
+      next_heading = next_heading + 1
+      while #open > 0 and open[#open] >= heading.level do
+        table.remove(open)
+      end
+      if #heading.tasks > 0 then
+        table.insert(open, heading.level)
+        levels[lnum] = ">" .. #open
+      else
+        levels[lnum] = tostring(#open)
+      end
+    else
+      levels[lnum] = tostring(#open)
+    end
+  end
+  return levels
+end
+
 -- Returns, for 1-indexed `lines` from the top of the buffer:
 -- `tasks`: by line number, each parse.classify result plus `lnum`, `length` (the line's
 --   byte length), `indent` (its width in columns), `parent` (the line number of the
 --   nearest enclosing task, or nil) and `children` (line numbers of direct child tasks).
 -- `counts`: by line number, `{ done, total }` for each task and heading with at least one
 --   counted task under it, by the rule `count` applies.
+-- `folds`: for every line, its 'foldexpr' result as a string.
 --
 -- A task's descendants are the task lines after it with a greater indentation, up to the
 -- first non-blank line indented the same or less. A heading's tasks run to the next
@@ -120,7 +148,7 @@ function M.build(lines)
     record(heading.lnum, heading.tasks)
   end
 
-  return { tasks = tasks, counts = counts }
+  return { tasks = tasks, counts = counts, folds = fold_levels(#lines, headings) }
 end
 
 -- The build result for the buffer's current text. Callers must not modify it.
