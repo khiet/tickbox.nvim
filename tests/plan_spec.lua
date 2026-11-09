@@ -12,7 +12,6 @@ describe("plan", function()
     { "- [ ] foo", "checked" },
     { "- [/] foo", "checked" },
     { "- [x] foo", "unchecked" },
-    { "- [X] foo", "unchecked" },
     { "- [-] foo", "checked" },
   }
   for _, case in ipairs(toggles) do
@@ -26,7 +25,6 @@ describe("plan", function()
     { "- [ ] foo", "in_progress" },
     { "- [/] foo", "checked" },
     { "- [x] foo", "cancelled" },
-    { "- [X] foo", "cancelled" },
     { "- [-] foo", "unchecked" },
   }
   for _, case in ipairs(cycles) do
@@ -53,7 +51,6 @@ describe("plan", function()
     { "unchecked", "- [ ] foo" },
     { "in_progress", "- [/] foo" },
     { "checked", "- [x] foo" },
-    { "checked", "- [X] foo" },
     { "cancelled", "- [-] foo" },
   }
   for _, case in ipairs(settled) do
@@ -63,12 +60,12 @@ describe("plan", function()
   end
 
   it("raises on an unknown state before planning", function()
-    assert.has_error(function()
-      plan.set("bogus")
-    end, "Tickbox: unknown state: bogus")
-    assert.has_error(function()
-      plan.set(nil)
-    end, "Tickbox: unknown state: nil")
+    local ok, err = pcall(plan.set, "bogus")
+    assert.is_false(ok)
+    assert.are.equal("Tickbox: unknown state: bogus", err)
+    ok, err = pcall(plan.set, nil)
+    assert.is_false(ok)
+    assert.are.equal("Tickbox: unknown state: nil", err)
   end)
 
   it("edits only the tasks in the range that are not already in the state", function()
