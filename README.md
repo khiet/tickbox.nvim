@@ -85,7 +85,7 @@ Toggling is a done/not-done switch: a checked task becomes `[ ]` and every other
 - A task's descendants are the task lines after it with a greater indentation, up to the first non-blank line indented the same or less. Blank lines and deeper non-task lines do not end them. A tab counts to the next multiple of four columns.
 - A heading (`#` to `######`) holds every task until the next heading of the same or a higher level, so `## A` includes the tasks under a `### B` inside it.
 - Counts cover all descendants, not only direct children. `done` is checked tasks and `total` is unchecked, in-progress and checked ones; cancelled tasks are left out, and a total of 0 shows nothing.
-- With `auto_check_parent`, the change walks up through every ancestor. It never changes a task's descendants, never touches a cancelled ancestor, and never uses headings. A toggle, cycle or set and the parents it updates are one undo step, and a range updates parents once after all its edits.
+- With `auto_check_parent`, the change walks up through every ancestor. It never changes a task's descendants, never touches a cancelled ancestor, and never uses headings. A toggle, cycle or set and the parents it updates are one undo step, and a range updates parents once after all its edits, leaving the tasks in the range as the range set them.
 - Fenced lines are ignored, and counts follow `:Tickbox disable` and `enable` like the icons. They stay visible on the line being typed.
 
 ### Commands

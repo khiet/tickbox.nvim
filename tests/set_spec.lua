@@ -166,6 +166,19 @@ describe(":Tickbox set", function()
     end)
   end
 
+  it("ignores trailing whitespace after the state", function()
+    h.open({ "- [ ] foo" })
+    vim.cmd("Tickbox set checked ")
+    assert.are.same({ "- [x] foo" }, lines())
+  end)
+
+  it("reports a missing state when only whitespace follows set", function()
+    h.open({ "- [ ] foo" })
+    local ok, err = pcall(vim.cmd, "Tickbox set ")
+    assert.is_false(ok)
+    assert.is_truthy(tostring(err):find("unknown state", 1, true))
+  end)
+
   it("does not let another subcommand take a state", function()
     h.open({ "- [ ] foo" })
     local ok, err = pcall(vim.cmd, "Tickbox toggle cancelled")

@@ -70,15 +70,17 @@ local subcommands = {
 }
 
 vim.api.nvim_create_user_command("Tickbox", function(args)
+  -- `nargs = 1` keeps trailing whitespace in the argument.
+  local argument = vim.trim(args.args)
   -- The state is the rest of the argument, so an extra word makes it an unknown state.
-  local state = args.args == "set" and "" or args.args:match("^set%s+(.+)$")
+  local state = argument == "set" and "" or argument:match("^set%s+(.+)$")
   if state then
     require("tickbox").set_range(state, args.line1, args.line2)
     return
   end
-  local run = subcommands[args.args]
+  local run = subcommands[argument]
   if not run then
-    error("Tickbox: unknown subcommand: " .. args.args, 0)
+    error("Tickbox: unknown subcommand: " .. argument, 0)
   end
   run(args)
 end, {

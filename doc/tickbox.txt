@@ -112,7 +112,8 @@ typed.
 With `auto_check_parent`, the change walks up through every ancestor. It never
 changes a task's descendants, never touches a cancelled ancestor, and never
 uses headings. A toggle, cycle or set and the parents it updates are one undo
-step, and a range updates parents once after all its edits.
+step, and a range updates parents once after all its edits, leaving the tasks
+in the range as the range set them.
 
 Fenced lines are ignored, as everywhere else.
 
