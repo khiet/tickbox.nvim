@@ -1,15 +1,11 @@
-# Today
+# Moon launch
 
-## Groceries
+## Crew
 
-- [x] Milk
-- [/] Bread
-- [ ] Eggs
-- [-] Caviar
+- [x] Hire an astronaut
+- [ ] Hire a backup astronaut
+- [ ] Teach both to float
+- [ ] Agree who plants the flag
 
-## Chores
+## Rocket
 
-- [ ] Clean the kitchen
-  - [x] Dishes
-  - [ ] Counters
-- [ ] Water the plants
