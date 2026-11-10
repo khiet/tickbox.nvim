@@ -8,8 +8,9 @@ and headings fold only where there are tasks.
 Checkboxes for the task lists in your markdown notes. `- [ ]` draws as a box,
 `- [x]` as a ticked box, and one key toggles the task under the cursor.
 
-Everything else in the buffer stays as you wrote it: no treesitter or
-`conceallevel` unless you turn on `links`, and no default keymaps. If you already render whole documents with
+Everything else in the buffer stays as you wrote it, and there are no default
+keymaps. No treesitter or `conceallevel` either, once `links` and `compact` are
+both off. If you already render whole documents with
 [render-markdown.nvim](https://github.com/MeanderingProgrammer/render-markdown.nvim)
 or [markview.nvim](https://github.com/OXY2DEV/markview.nvim), they draw
 checkboxes too and you do not need this. tickbox is for people who want the
@@ -25,13 +26,14 @@ boxes and nothing else.
 - `done/total` counts on parent tasks and headings.
 - Parents tick themselves once every child is done.
 - Headings with tasks fold, with native `za`, `zM` and `zR`.
-- Links on task lines can draw as just their label, and `gx` still opens them.
-- No treesitter or `conceallevel` unless you turn on `links`, and no default keymaps.
+- The box sits one space from the task's text, so lines indented under a task line up with it.
+- Links on task lines draw as just their label, and `gx` still opens them.
+- No default keymaps. No treesitter or `conceallevel` once `links` and `compact` are both off.
 
-To see all of it at once:
+To turn on everything that is off by default:
 
 ```lua
-opts = { progress = true, auto_check_parent = true, fold = true, links = true }
+opts = { progress = true, auto_check_parent = true, fold = true }
 ```
 
 ## Requirements
@@ -95,7 +97,8 @@ require("tickbox").setup({
   progress = false,                            -- done/total on parents and headings
   auto_check_parent = false,                   -- keep parents in step with children
   fold = false,                                -- fold headings that have tasks
-  links = false,                               -- draw links on task lines as their label
+  links = true,                                -- draw links on task lines as their label
+  compact = true,                              -- draw the box one space from the task text
 })
 ```
 
@@ -103,7 +106,10 @@ require("tickbox").setup({
 - `progress`: every parent task and heading with at least one counted task shows `done/total` at the end of its line, in `TickboxProgress`. See [Progress and parents](#progress-and-parents).
 - `auto_check_parent`: after a toggle, cycle or set, an ancestor whose counted descendants are all checked becomes `[x]`, and a checked ancestor with a descendant that is not becomes `[ ]`.
 - `fold`: headings that have tasks fold in attached buffers. Off, the plugin leaves every fold option untouched. See [Folding](#folding).
-- `links`: an inline link on a task line draws as its label, in `TickboxLink`. Off, the plugin leaves `conceallevel` and the treesitter highlighter alone. See [Links](#links).
+- `links`: an inline link on a task line draws as its label, in `TickboxLink`. `links = false` draws links raw. See [Links](#links).
+- `compact`: the box draws one space from the task's text. `compact = false` pads the box to the width of `- [ ]`, so the text stays in its raw column. See [Compact box](#compact-box).
+
+`links` and `compact` both hide text, which sets `conceallevel` and `concealcursor` on the window and replaces the buffer's treesitter highlighter. With both `false`, the plugin leaves all three alone.
 
 Each call starts from the defaults rather than the previous call's options.
 
@@ -128,11 +134,23 @@ With `progress = true`, every parent task and heading shows `done/total` for the
 
 With `fold = true`, headings that have tasks under them fold with the native `za`, `zc`, `zM` and `zR`. It sets `foldmethod`, `foldexpr`, `foldtext` and `foldlevel` on attached buffers, and folds start open. A closed heading keeps its own text and highlighting and, with `progress`, its count; the rest of the line takes the `fold` item of `fillchars`. Full rules: `:h tickbox-fold`.
 
+### Compact box
+
+`compact` is on by default. `- [x] buy milk` draws as the box, one space and `buy milk`: the rest of `- [x]` is hidden, so lines indented under a task line up with its text. The text does not change. With `compact = false` the box is padded to the width of `- [x]` instead, and the text stays in its raw column.
+
+The padded box also draws wherever Neovim would show the hidden text: on every line of a visual selection, in a window at `conceallevel` 0 or 1, and in a buffer without a treesitter highlighter, such as markdown on Neovim 0.10 and 0.11 unless you start one. Three costs come with hiding text:
+
+- Neovim wraps on the raw width, so a task line wraps 4 cells early.
+- The text shifts 4 cells right while you type on a line or select it.
+- Horizontal motions still cross the hidden prefix, so `l` appears to pause there.
+
+Full rules: `:h tickbox-compact`.
+
 ### Links
 
-With `links = true`, `- [ ] review [ABC-123](https://example.com/ABC-123) today` draws as `review ABC-123 today`, with the label underlined. The text does not change, and `gx` opens the URL as usual. No other line changes appearance: plain bullets, prose, headings and fenced lines stay raw even when they hold links.
+`links` is on by default. `- [ ] review [ABC-123](https://example.com/ABC-123) today` draws as `review ABC-123 today`, with the label underlined. The text does not change, and `gx` opens the URL as usual. No other line changes appearance: plain bullets, prose, headings and fenced lines stay raw even when they hold links.
 
-The line being typed shows the raw link, which is how you edit a URL. It sets `conceallevel` and `concealcursor` on the window and replaces the buffer's treesitter highlighter with one that conceals nothing else, so it needs a treesitter highlighter on the buffer; without one, links stay raw. Full rules: `:h tickbox-links`.
+The line being typed shows the raw link, which is how you edit a URL. Like `compact`, it sets `conceallevel` and `concealcursor` on the window and replaces the buffer's treesitter highlighter with one that conceals nothing else, so it needs a treesitter highlighter on the buffer; without one, links stay raw. Full rules: `:h tickbox-links`.
 
 ### Commands
 

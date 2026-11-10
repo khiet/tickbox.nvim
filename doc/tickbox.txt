@@ -9,6 +9,7 @@ CONTENTS                                                             *tickbox*
   Task states ............................. |tickbox-states|
   Progress and parents .................... |tickbox-progress|
   Folding ................................. |tickbox-fold|
+  Compact box ............................. |tickbox-compact|
   Links ................................... |tickbox-links|
   Commands ................................ |tickbox-commands|
   Mapping ................................. |tickbox-mapping|
@@ -26,8 +27,8 @@ box, with `[/]` for in progress and `[-]` for cancelled. Nothing else in the
 buffer is changed, and rendering never edits the text. One mapping toggles the
 task under the cursor, or every task in a visual range, and another cycles it
 through the four states. Optional mappings start the next task on <CR>, |o|
-and |O|. There is no default keymap, and no treesitter dependency or
-'conceallevel' change unless `links` is on.
+and |O|. There is no default keymap. No treesitter dependency or
+'conceallevel' change either, once `links` and `compact` are both off.
 
 Requires Neovim 0.10 or later. The default glyphs need a Nerd Font; see
 |tickbox-options| for Unicode ones.
@@ -61,7 +62,8 @@ Defaults: >lua
       progress = false,
       auto_check_parent = false,
       fold = false,
-      links = false,
+      links = true,
+      compact = true,
     })
 <
     filetypes   Filetypes to render. Replaces the default list.
@@ -77,8 +79,15 @@ Defaults: >lua
     fold        Fold headings that have tasks in attached buffers. Off, the
                 plugin leaves every fold option untouched. See |tickbox-fold|.
     links       Draw inline links on task lines as their label, in
-                |TickboxLink|. Off, the plugin leaves 'conceallevel' and the
-                treesitter highlighter alone. See |tickbox-links|.
+                |TickboxLink|. `links = false` draws them raw. See
+                |tickbox-links|.
+    compact     Draw the box one space from the task's text. `compact = false`
+                pads the box to the prefix's width, so the text stays in its
+                raw column. See |tickbox-compact|.
+
+`links` and `compact` both hide text, which changes 'conceallevel',
+'concealcursor' and the buffer's treesitter highlighter, see |tickbox-links|.
+With both `false` the plugin leaves all three alone.
 
 Each call starts from the defaults rather than the previous call's options.
 Below Neovim 0.10 it raises an error naming the minimum version.
@@ -154,9 +163,58 @@ returns false, as on any non-task line. A visual selection over a closed fold
 acts on the tasks in it.
 
 ==============================================================================
+COMPACT BOX                                                  *tickbox-compact*
+
+`compact`, on by default, draws the box one space from the task's text:
+>markdown
+    - [x] FUS-1: parent task
+      - Priority: High
+      - [ ] child task
+<
+draws as >
+    󰱒 FUS-1: parent task
+      - Priority: High
+      󰄱 child task
+<
+The icon draws at the start of the prefix and the rest of the prefix is
+hidden, so lines indented under a task line up with its text. One rule covers
+every task: whatever part of the prefix the icon does not cover is hidden.
+That includes ordered tasks, nested tasks and icons wider than one cell; an
+icon as wide as the prefix hides nothing. The buffer text does not change, and
+no other line changes appearance.
+
+`compact = false` draws the padded box: the icon, then spaces to the width of
+the prefix, so the text stays in its raw column. The padded box also draws
+wherever Neovim would show the hidden text, so no raw `[x]` appears beside the
+icon:
+
+- on every line of a visual selection, cursor line included
+- in a window at 'conceallevel' 0 or 1
+- in a buffer that does not qualify, see below
+
+In normal and command mode the cursor line stays compact. The line being typed
+on shows its raw text as always.
+
+Hiding text works as it does for `links`: see |tickbox-links| for the window
+options this sets, the highlighter it replaces and which buffers qualify. A
+buffer needs a treesitter highlighter. Neovim 0.12 starts one for markdown by
+itself; Neovim 0.10 and 0.11 do not, so there the box stays padded unless you
+start one. A window already at level 2 or 3 keeps its options and its
+highlighter and gets the compact box.
+
+These costs come with hiding text:
+
+- Neovim wraps on the raw width, so a task line wraps 4 cells early.
+- The text shifts 4 cells right when a line becomes the line being typed on or
+  enters a visual selection.
+- Horizontal motions still cross the hidden prefix, so |l| appears to pause
+  there.
+
+==============================================================================
 LINKS                                                          *tickbox-links*
 
-`links = true` draws an inline link on a task line as its label: >markdown
+`links`, on by default, draws an inline link on a task line as its label:
+>markdown
     - [ ] review [ABC-123](https://example.com/ABC-123) today
 <
 draws as `review ABC-123 today`, with the label in |TickboxLink|. The buffer
@@ -177,16 +235,18 @@ walking over a hidden URL. `:Tickbox disable` shows links raw.
 
 Hiding text takes 'conceallevel' above 0, where Neovim's markdown queries
 would also conceal every other line. So in an attached buffer with a normal
-'buftype' and a treesitter highlighter, this sets `conceallevel=2` and
-`concealcursor=cn` on the window and replaces the highlighter with one that
-uses the same query files minus their conceal directives. A later `setup` with
-`links = false` restores both.
+'buftype' and a treesitter highlighter, `links` or `compact` sets
+`conceallevel=2` and `concealcursor=cn` on the window and replaces the
+highlighter with one that uses the same query files minus their conceal
+directives. A later `setup` with `links = false` and `compact = false`
+restores both.
 
 Without a treesitter highlighter, links stay raw; Neovim 0.12 starts one for
-markdown by itself. A window already above level 0 keeps its options and its
-highlighter and only gets the labels, because its owner already chose conceal.
-The highlighter belongs to the buffer, so if the buffer also shows in a window
-at level 0, links stay raw there.
+markdown by itself, and Neovim 0.10 and 0.11 do not. A window already above
+level 0 keeps its options and its highlighter, because its owner already chose
+conceal. It gets the labels, and at level 2 or 3 the compact box. The
+highlighter belongs to the buffer, so if the buffer also shows in a window at
+level 0, links stay raw there.
 
 |:Tickbox| `disable` keeps folds, because it only stops drawing. The count
 disappears with the other rendering.

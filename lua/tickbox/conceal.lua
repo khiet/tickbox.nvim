@@ -1,13 +1,13 @@
--- Draws inline links on task lines as their label. Hiding text takes 'conceallevel' above
--- 0, where the stock markdown queries would also conceal every other line, so a buffer
--- with this on gets a treesitter highlighter whose queries conceal nothing. Only render's
--- marks then hide anything. The highlighter's `queries` option is a private Neovim API,
--- kept to this module.
+-- Owns what hiding text needs. `links` and `compact` both hide part of a task line, which
+-- takes 'conceallevel' above 0, where the stock markdown queries would also conceal every
+-- other line. So a buffer with either on gets a treesitter highlighter whose queries
+-- conceal nothing, and only render's marks then hide anything. The highlighter's `queries`
+-- option is a private Neovim API, kept to this module.
 local buffers = require("tickbox.buffers")
 
 local M = {}
 
-local group = vim.api.nvim_create_augroup("tickbox_links", { clear = true })
+local group = vim.api.nvim_create_augroup("tickbox_conceal", { clear = true })
 
 -- Also how a window is recognised as ours, so a window the user set to conceal is left
 -- alone. Means the same as "nc": conceal the cursor line in normal and command mode, so
@@ -37,16 +37,77 @@ end
 -- buftype leaves out LSP hover floats, which rely on stock conceal. The highlighter leaves
 -- out regex markdown syntax, which would conceal other lines at this 'conceallevel'.
 local function qualifies(buf)
-  return buffers.options().links
+  local options = buffers.options()
+  return (options.links or options.compact)
     and buffers.is_attached(buf)
     and vim.bo[buf].buftype == ""
     and active(buf) ~= nil
 end
 
--- Whether render should place link marks in this window. A window at level 0 would only
--- get the label styling on a link it cannot hide.
-function M.draws(win, buf)
-  return qualifies(buf) and vim.wo[win].conceallevel > 0
+-- The 'concealcursor' flag Neovim tests for the cursor line in the current mode, or nil
+-- in a mode where that line is never concealed. Select mode tests "n", as Neovim does.
+local function cursor_flag(mode)
+  local first = mode:sub(1, 1)
+  if first == "v" or first == "V" or first == "\22" then
+    return "v"
+  elseif first == "R" then
+    return "i"
+  elseif first == "s" or first == "S" or first == "\19" then
+    return "n"
+  elseif first == "n" or first == "i" or first == "c" then
+    return first
+  end
+end
+
+local function is_visual(mode)
+  return mode:find("^[vV\22sS\19]") ~= nil
+end
+
+local NOTHING = {
+  links = false,
+  hides = function()
+    return false
+  end,
+}
+
+-- What render may hide in this window, valid for one redraw of it. `links` is whether to
+-- place link marks: a window at level 0 would only get the label styling on a link it
+-- cannot hide. `hides(row)` is whether Neovim conceals that row, which mirrors its own
+-- rule so a line it shows raw is never drawn with a mark it would ignore. Level 1 does not
+-- count: there Neovim draws a replacement cell for each hidden run.
+function M.view(win, buf)
+  if not qualifies(buf) then
+    return NOTHING
+  end
+  local options = buffers.options()
+  local level = vim.wo[win].conceallevel
+  local view = { links = options.links and level > 0, hides = NOTHING.hides }
+  if not options.compact or level < 2 then
+    return view
+  end
+
+  local mode = vim.api.nvim_get_mode().mode
+  local concealcursor = vim.wo[win].concealcursor
+  local function has(flag)
+    return flag ~= nil and concealcursor:find(flag, 1, true) ~= nil
+  end
+  -- Only the current window's cursor line can show raw; another window conceals its own.
+  local cursor_row
+  if win == vim.api.nvim_get_current_win() and not has(cursor_flag(mode)) then
+    cursor_row = vim.api.nvim_win_get_cursor(win)[1] - 1
+  end
+  -- Neovim shows the selection raw in every window on the selected buffer.
+  local first, last
+  if is_visual(mode) and buf == vim.api.nvim_get_current_buf() and not has("v") then
+    first, last = vim.fn.line("v") - 1, vim.fn.line(".") - 1
+    if first > last then
+      first, last = last, first
+    end
+  end
+  view.hides = function(row)
+    return row ~= cursor_row and not (first and row >= first and row <= last)
+  end
+  return view
 end
 
 local function strip_conceal(source)
@@ -63,7 +124,7 @@ local function stripped_query(lang)
 end
 
 -- Returns whether the highlighter is in place. Failing leaves the stock one running, and
--- the caller leaves the window options alone, so links just stay raw.
+-- the caller leaves the window options alone, so links stay raw and the box padded.
 local function start_stripped(buf)
   if stripped[buf] and active(buf) == stripped[buf] then
     return true

@@ -3,7 +3,7 @@
 -- and text changes, undo, :e, folds and scrolling are covered by redraws alone.
 local buffers = require("tickbox.buffers")
 local fold = require("tickbox.fold")
-local links = require("tickbox.links")
+local conceal = require("tickbox.conceal")
 local state = require("tickbox.state")
 local tree = require("tickbox.tree")
 
@@ -21,6 +21,8 @@ local revealed
 -- Whether TickboxCheckedText has any styling, read once per window redraw. An extmark
 -- with an empty group still changes the screen attributes, so it is skipped then.
 local style_checked_text = false
+-- What may be hidden in the window being redrawn, from `conceal.view`.
+local view
 
 local function needs_watch(buf)
   local options = buffers.options()
@@ -109,8 +111,8 @@ local function draw_progress(win, buf, row)
   vim.api.nvim_buf_set_extmark(buf, ns, row, 0, mark)
 end
 
-local function draw_links(win, buf, row, task)
-  if #task.links == 0 or not links.draws(win, buf) then
+local function draw_links(buf, row, task)
+  if #task.links == 0 or not view.links then
     return
   end
   for _, link in ipairs(task.links) do
@@ -132,7 +134,7 @@ local function draw_links(win, buf, row, task)
   end
 end
 
-local function draw(win, buf, row)
+local function draw(buf, row)
   -- A fence can open anywhere above the viewport, so the task needs the whole buffer;
   -- the tree caches that per buffer change rather than per redraw.
   local task = tree.get(buf).tasks[row + 1]
@@ -141,14 +143,27 @@ local function draw(win, buf, row)
   end
 
   local icon = buffers.options().icons[task.state]
-  -- Pad to the prefix's width so the task text stays in its raw column.
-  local padding = (task.prefix_end - task.prefix_start) - vim.fn.strdisplaywidth(icon)
+  local icon_end = task.prefix_start + vim.fn.strdisplaywidth(icon)
+  local virt_text = { { icon, state.states[task.state].highlight } }
+  if view.hides(row) then
+    -- Compact: the rest of the prefix is removed, so the text starts one space after
+    -- the icon. An icon as wide as the prefix leaves nothing to remove.
+    if icon_end < task.prefix_end then
+      vim.api.nvim_buf_set_extmark(buf, ns, row, icon_end, {
+        ephemeral = true,
+        end_col = task.prefix_end,
+        conceal = "",
+      })
+    end
+  else
+    -- Pad to the prefix's width, so no raw bracket shows beside the icon and the task
+    -- text stays in its raw column.
+    local padding = string.rep(" ", math.max(task.prefix_end - icon_end, 0))
+    table.insert(virt_text, { padding, "TickboxPadding" })
+  end
   vim.api.nvim_buf_set_extmark(buf, ns, row, task.prefix_start, {
     ephemeral = true,
-    virt_text = {
-      { icon, state.states[task.state].highlight },
-      { string.rep(" ", math.max(padding, 0)), "TickboxPadding" },
-    },
+    virt_text = virt_text,
     virt_text_pos = "overlay",
     -- Otherwise a horizontally scrolled line keeps the glyph at the window edge,
     -- on top of task text.
@@ -167,7 +182,7 @@ local function draw(win, buf, row)
     })
   end
 
-  draw_links(win, buf, row, task)
+  draw_links(buf, row, task)
 end
 
 -- nvim__redraw is experimental, but nothing public repaints a single line and it is
@@ -253,7 +268,8 @@ function M.start()
 
   vim.api.nvim_set_decoration_provider(ns, {
     on_win = function(_, win, buf)
-      links.check(win, buf)
+      conceal.check(win, buf)
+      view = conceal.view(win, buf)
       local hl = vim.api.nvim_get_hl(0, { name = "TickboxCheckedText" })
       hl.default = nil
       style_checked_text = next(hl) ~= nil
@@ -265,7 +281,7 @@ function M.start()
         draw_progress(win, buf, row)
       end
       if not (revealed and revealed.win == win and revealed.row == row) then
-        draw(win, buf, row)
+        draw(buf, row)
       end
     end,
   })

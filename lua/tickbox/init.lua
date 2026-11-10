@@ -1,6 +1,6 @@
 local buffers = require("tickbox.buffers")
 local fold = require("tickbox.fold")
-local links = require("tickbox.links")
+local conceal = require("tickbox.conceal")
 local render = require("tickbox.render")
 local state = require("tickbox.state")
 local toggle = require("tickbox.toggle")
@@ -22,9 +22,12 @@ local defaults = {
   auto_check_parent = false,
   -- Folds headings that have tasks. Off leaves every fold option untouched.
   fold = false,
-  -- Draws inline links on task lines as their label. Off changes no window option and
-  -- leaves the treesitter highlighter alone.
-  links = false,
+  -- Draws inline links on task lines as their label.
+  links = true,
+  -- Draws the box one space from the task text instead of padded to the prefix's width.
+  -- With this and `links` both off, no window option is changed and the treesitter
+  -- highlighter is left alone.
+  compact = true,
 }
 
 local started = false
@@ -37,7 +40,7 @@ function M.setup(opts)
   end
   buffers.setup(vim.tbl_deep_extend("force", defaults, opts or {}))
   fold.start()
-  links.start()
+  conceal.start()
   render.start()
   started = true
 end
