@@ -119,10 +119,11 @@ describe("compact", function()
       -- Soft reads: Neovim repaints these lines itself when the selection changes.
       it("pads the box on every line in the visual area, and only there", function()
         open_on_text({ "- [ ] one", "- [x] two", "- [ ] three", "last" })
-        local seen
+        local seen = {}
         h.type("<C-v>j<PROBE><Esc>", function()
-          vim.cmd("redraw")
-          seen = rows(1, 3)
+          for row = 1, 3 do
+            seen[row] = h.screen_line(row, { soft = true })
+          end
         end)
         assert.are.same({
           h.UNCHECKED .. "     one",
