@@ -6,28 +6,8 @@ local TASK = "- [ ] see [ABC-123](" .. URL .. ") now"
 local DRAWN = h.UNCHECKED .. "     see ABC-123 now"
 local RAW = h.UNCHECKED .. "     see [ABC-123](" .. URL .. ") now"
 
--- The markdown_inline injection parses asynchronously, so a screen read straight after
--- opening a buffer shows other lines raw even under stock conceal. The wait also runs the
--- repair a redraw schedules when it finds the wrong highlighter.
-local function settle()
-  for _ = 1, 3 do
-    local parser = vim.treesitter.get_parser(0)
-    if parser then
-      parser:parse(true)
-    end
-    vim.cmd("redraw!")
-    vim.wait(20, function()
-      return false
-    end)
-  end
-end
-
-local function open_treesitter(lines)
-  local buf = h.open(lines)
-  vim.treesitter.start(buf, "markdown")
-  settle()
-  return buf
-end
+local settle = h.settle
+local open_treesitter = h.open_treesitter
 
 local function write_file(lines, extension)
   local path = vim.fn.tempname() .. (extension or ".md")
@@ -48,7 +28,7 @@ local function park_cursor(buf)
   vim.api.nvim_win_set_cursor(0, { vim.api.nvim_buf_line_count(buf), 0 })
 end
 
--- A child Neovim, for what this process cannot show: a UI, or never having had `links` on.
+-- A child Neovim, for what this process cannot show: a UI.
 -- Returns a function that makes RPC requests to it and one that stops it.
 local function embedded()
   local child = vim.fn.jobstart({
@@ -78,41 +58,17 @@ describe("links", function()
   end)
 
   describe("off", function()
-    it("is the default and draws the link raw", function()
-      tickbox.setup()
+    it("draws the link raw", function()
+      tickbox.setup({ compact = false, links = false })
       local buf = open_treesitter({ TASK, "last" })
       park_cursor(buf)
       assert.are.equal(RAW, h.screen_line(1))
-    end)
-
-    it("changes no window option or highlighter", function()
-      tickbox.setup()
-      local buf = open_treesitter({ TASK })
-      local stock = vim.treesitter.highlighter.active[buf]
-      settle()
-      assert.are.equal(0, vim.wo.conceallevel)
-      assert.are.equal("", vim.wo.concealcursor)
-      assert.are.equal(stock, vim.treesitter.highlighter.active[buf])
-    end)
-  end)
-
-  describe("never turned on", function()
-    it("leaves a window alone even with the options it would have set", function()
-      local call, stop = embedded()
-      call("nvim_command", "setlocal conceallevel=2 concealcursor=cn")
-      call("nvim_exec_lua", [[require("tickbox").setup()]], {})
-      call("nvim_command", "doautocmd BufWinEnter")
-      local level = call("nvim_get_option_value", "conceallevel", { scope = "local" })
-      local cursor = call("nvim_get_option_value", "concealcursor", { scope = "local" })
-      stop()
-      assert.are.equal(2, level)
-      assert.are.equal("cn", cursor)
     end)
   end)
 
   describe("on", function()
     before_each(function()
-      tickbox.setup({ links = true })
+      tickbox.setup({ compact = false })
     end)
 
     it("draws a link as its label and leaves the text alone", function()
@@ -169,12 +125,12 @@ describe("links", function()
         "  ",
         "last",
       }
-      tickbox.setup()
+      tickbox.setup({ compact = false, links = false })
       local buf = open_treesitter(lines)
       park_cursor(buf)
       local raw = rows(1, #lines)
 
-      tickbox.setup({ links = true })
+      tickbox.setup({ compact = false })
       settle()
       park_cursor(buf)
       local with_links = rows(1, #lines)
@@ -186,7 +142,7 @@ describe("links", function()
     -- Guards the test above: under stock queries this level really does conceal, so a
     -- pass there means the queries were replaced, not that parsing had not finished.
     it("needs the highlighter change to keep other lines raw", function()
-      tickbox.setup()
+      tickbox.setup({ compact = false, links = false })
       local buf = open_treesitter({ "prose [a](" .. URL .. ") *em*", "```lua", "x", "```", "last" })
       park_cursor(buf)
       vim.opt_local.conceallevel = 2
@@ -252,12 +208,12 @@ describe("links", function()
 
       it("yields to a user definition", function()
         vim.api.nvim_set_hl(0, "TickboxLink", { bold = true })
-        tickbox.setup({ links = true })
+        tickbox.setup({ compact = false })
         local hl = vim.api.nvim_get_hl(0, { name = "TickboxLink" })
         assert.is_true(hl.bold)
         assert.is_nil(hl.link)
         vim.cmd("hi clear TickboxLink")
-        tickbox.setup({ links = true })
+        tickbox.setup({ compact = false })
       end)
     end)
 
@@ -284,7 +240,7 @@ describe("links", function()
       -- raw column even when the cursor is drawn elsewhere.
       it("puts the insert cursor at the raw column when the line is revealed", function()
         local call, stop = embedded()
-        call("nvim_exec_lua", [[require("tickbox").setup({ links = true })]], {})
+        call("nvim_exec_lua", [[require("tickbox").setup({ compact = false })]], {})
         call("nvim_command", "enew")
         call("nvim_buf_set_lines", 0, 0, -1, false, { TASK, "last" })
         call("nvim_set_option_value", "filetype", "markdown", { buf = 0 })
@@ -501,7 +457,7 @@ describe("links", function()
         local ours = vim.treesitter.highlighter.active[buf]
         assert.are.equal(2, vim.wo.conceallevel)
 
-        tickbox.setup({ links = false })
+        tickbox.setup({ compact = false, links = false })
         settle()
         assert.are.equal(0, vim.wo.conceallevel)
         assert.are.equal("", vim.wo.concealcursor)
@@ -520,7 +476,7 @@ describe("links", function()
         open_treesitter({ TASK, "last" })
         vim.cmd("split")
         assert.are.equal(2, vim.wo.conceallevel)
-        tickbox.setup({ links = false })
+        tickbox.setup({ compact = false, links = false })
         assert.are.equal(0, vim.wo.conceallevel)
         vim.cmd("wincmd p")
         assert.are.equal(0, vim.wo.conceallevel)

@@ -40,7 +40,8 @@ local surface = {
   "progress = false",
   "auto_check_parent = false",
   "fold = false",
-  "links = false",
+  "links = true",
+  "compact = true",
   "TickboxLink",
   "gx",
   "foldexpr",
@@ -98,14 +99,25 @@ describe("docs", function()
     end)
   end
 
-  -- Both promises are true only while `links` is off, so they must say so.
+  -- Both promises are true only while `links` and `compact` are off, so they must say so.
   for _, path in ipairs({ "README.md", "doc/tickbox.txt" }) do
     it(path .. " qualifies its treesitter and conceallevel promise", function()
       local doc = read(path):gsub("%s+", " ")
       for promise in doc:gmatch("[Nn]o treesitter[^.]*%.") do
         assert.is_truthy(promise:find("links", 1, true), promise)
+        assert.is_truthy(promise:find("compact", 1, true), promise)
       end
       assert.is_truthy(doc:find("[Nn]o treesitter"))
+    end)
+  end
+
+  -- Costs of `compact` that are accepted rather than fixed, so the docs must own up to them.
+  for _, path in ipairs({ "README.md", "doc/tickbox.txt" }) do
+    it(path .. " lists the accepted costs of compact", function()
+      local doc = read(path):gsub("%s+", " ")
+      for _, cost in ipairs({ "wraps 4 cells early", "shifts 4 cells right", "cross the hidden prefix" }) do
+        assert.is_truthy(doc:find(cost, 1, true), cost)
+      end
     end)
   end
 
@@ -165,18 +177,15 @@ describe("docs", function()
       between("both `ft` fields", "## Configuration", "## Usage")
     end)
 
-    it("lists folding in Features and shows every option on", function()
+    it("lists folding in Features and shows every opt-in option on", function()
       between("fold", "## Features", "## Requirements")
-      between(
-        "opts = { progress = true, auto_check_parent = true, fold = true, links = true }",
-        "## Features",
-        "## Requirements"
-      )
+      between("opts = { progress = true, auto_check_parent = true, fold = true }", "## Features", "## Requirements")
     end)
 
     it("points each shortened rules section at the help file", function()
       between("`:h tickbox-progress`", "### Progress and parents", "### Folding")
-      between("`:h tickbox-fold`", "### Folding", "### Links")
+      between("`:h tickbox-fold`", "### Folding", "### Compact box")
+      between("`:h tickbox-compact`", "### Compact box", "### Links")
       between("`:h tickbox-links`", "### Links", "### Commands")
       between("`:h tickbox-tasks`", "## Task syntax", "## Recipes")
     end)
@@ -218,6 +227,7 @@ describe("docs", function()
       "tickbox-states",
       "tickbox-progress",
       "tickbox-fold",
+      "tickbox-compact",
       "tickbox-links",
       "tickbox-tasks",
       "TickboxProgress",

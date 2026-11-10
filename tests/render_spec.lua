@@ -1,6 +1,12 @@
 local h = require("tests.helpers")
+local tickbox = require("tickbox")
 
 describe("rendering", function()
+  -- These specs read the padded box, which the default options no longer draw.
+  before_each(function()
+    tickbox.setup({ compact = false })
+  end)
+
   it("draws glyphs over the marker and keeps the text column", function()
     h.open({ "- [ ] foo", "- [x] bar" })
     assert.are.equal(h.UNCHECKED .. "     foo", h.screen_line(1))
@@ -104,7 +110,7 @@ describe("rendering", function()
     vim.o.eventignore = ""
     assert.are.equal("- [ ] foo", h.screen_line(1))
 
-    require("tickbox").setup()
+    tickbox.setup({ compact = false })
     assert.are.equal(h.UNCHECKED .. "     foo", h.screen_line(1))
   end)
 
@@ -161,7 +167,7 @@ describe("rendering", function()
 
   it("keeps a colorscheme override of the highlight groups", function()
     vim.api.nvim_set_hl(0, "TickboxChecked", { link = "Title" })
-    require("tickbox").setup()
+    tickbox.setup()
     assert.are.equal("Title", vim.api.nvim_get_hl(0, { name = "TickboxChecked" }).link)
     vim.cmd("doautocmd ColorScheme")
     assert.are.equal("Title", vim.api.nvim_get_hl(0, { name = "TickboxChecked" }).link)

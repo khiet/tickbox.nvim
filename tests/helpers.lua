@@ -43,4 +43,27 @@ function M.pause()
   vim.bo.undolevels = vim.bo.undolevels
 end
 
+-- The markdown_inline injection parses asynchronously, so a screen read straight after
+-- opening a buffer shows other lines raw even under stock conceal. The wait also runs the
+-- repair a redraw schedules when it finds the wrong highlighter.
+function M.settle()
+  for _ = 1, 3 do
+    local parser = vim.treesitter.get_parser(0)
+    if parser then
+      parser:parse(true)
+    end
+    vim.cmd("redraw!")
+    vim.wait(20, function()
+      return false
+    end)
+  end
+end
+
+function M.open_treesitter(lines)
+  local buf = M.open(lines)
+  vim.treesitter.start(buf, "markdown")
+  M.settle()
+  return buf
+end
+
 return M

@@ -1,4 +1,5 @@
 local h = require("tests.helpers")
+local tickbox = require("tickbox")
 
 local function soft(row)
   return h.screen_line(row, { soft = true })
@@ -9,6 +10,8 @@ describe("insert mode", function()
   local two = h.CHECKED .. "     two"
 
   before_each(function()
+    -- These specs read the padded box, which the default options no longer draw.
+    tickbox.setup({ compact = false })
     h.open({ "- [ ] one", "- [x] two" })
     assert.are.equal(one, h.screen_line(1))
   end)

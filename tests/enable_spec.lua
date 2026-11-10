@@ -9,6 +9,11 @@ local function soft(row)
 end
 
 describe("enable and disable", function()
+  -- These specs read the padded box, which the default options no longer draw.
+  before_each(function()
+    tickbox.setup({ compact = false })
+  end)
+
   it("shows raw text after disable and renders again after enable", function()
     h.open({ raw })
     assert.are.equal(rendered, h.screen_line(1))
