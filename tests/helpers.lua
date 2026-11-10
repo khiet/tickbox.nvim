@@ -29,6 +29,34 @@ function M.screen_line(row, opts)
   return (table.concat(cells):gsub("%s+$", ""))
 end
 
+-- Screen rows `first` through `last`, each as `screen_line` returns it.
+function M.screen_lines(first, last)
+  local found = {}
+  for row = first, last do
+    found[#found + 1] = M.screen_line(row)
+  end
+  return found
+end
+
+-- A child Neovim, for what this process cannot show: a UI, or a session that never had
+-- an option on. Returns a function that makes RPC requests to it and one that stops it.
+function M.embedded()
+  local child = vim.fn.jobstart({
+    vim.v.progpath,
+    "--embed",
+    "--noplugin",
+    "-u",
+    "tests/minimal_init.lua",
+  }, { rpc = true })
+  -- --embed loads the init only once a UI attaches.
+  vim.rpcrequest(child, "nvim_ui_attach", 90, 14, {})
+  return function(...)
+    return vim.rpcrequest(child, ...)
+  end, function()
+    vim.fn.jobstop(child)
+  end
+end
+
 -- Types `keys`, running `probe` wherever `keys` contains the literal "<PROBE>", in the
 -- mode the preceding keys left. Lets a test look around while still in insert mode.
 function M.type(keys, probe)

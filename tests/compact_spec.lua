@@ -1,6 +1,8 @@
 local h = require("tests.helpers")
 local tickbox = require("tickbox")
 
+local rows = h.screen_lines
+
 describe("compact", function()
   after_each(function()
     tickbox.setup()
@@ -13,32 +15,6 @@ describe("compact", function()
 
   local URL = "https://example.com/ABC-123"
   local LINK_TASK = "- [ ] see [ABC-123](" .. URL .. ") now"
-
-  local function rows(first, last)
-    local found = {}
-    for row = first, last do
-      found[#found + 1] = h.screen_line(row)
-    end
-    return found
-  end
-
-  -- A child Neovim, for a session that has never had `links` or `compact` on.
-  local function embedded()
-    local child = vim.fn.jobstart({
-      vim.v.progpath,
-      "--embed",
-      "--noplugin",
-      "-u",
-      "tests/minimal_init.lua",
-    }, { rpc = true })
-    -- --embed loads the init only once a UI attaches.
-    vim.rpcrequest(child, "nvim_ui_attach", 90, 14, {})
-    return function(...)
-      return vim.rpcrequest(child, ...)
-    end, function()
-      vim.fn.jobstop(child)
-    end
-  end
 
   describe("on", function()
     it("is the default: draws the icon, one space, then the text, and leaves the buffer alone", function()
@@ -219,6 +195,19 @@ describe("compact", function()
       end)
     end)
 
+    it("draws a count after the text of a compact parent", function()
+      tickbox.setup({ progress = true })
+      h.open_treesitter({ "- [ ] parent", "  - [x] a", "  - [ ] b", "last" })
+      vim.api.nvim_win_set_cursor(0, { 4, 0 })
+      assert.are.equal(h.UNCHECKED .. " parent 1/2", h.screen_line(1))
+    end)
+
+    it("follows a toggle on the cursor line", function()
+      h.open_treesitter({ "- [ ] foo", "last" })
+      tickbox.toggle()
+      assert.are.equal(h.CHECKED .. " foo", h.screen_line(1, { soft = true }))
+    end)
+
     it(":Tickbox disable draws nothing and enable restores the compact box", function()
       h.open_treesitter({ "- [ ] foo", "last" })
       vim.cmd("Tickbox disable")
@@ -305,7 +294,7 @@ describe("compact", function()
     end)
 
     it("changes no window option or highlighter in a session that starts with them off", function()
-      local call, stop = embedded()
+      local call, stop = h.embedded()
       call("nvim_exec_lua", [[require("tickbox").setup({ compact = false, links = false })]], {})
       call("nvim_command", "setlocal conceallevel=2 concealcursor=cn")
       call("nvim_buf_set_lines", 0, 0, -1, false, { "- [ ] foo" })

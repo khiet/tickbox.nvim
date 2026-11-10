@@ -8,6 +8,8 @@ local RAW = h.UNCHECKED .. "     see [ABC-123](" .. URL .. ") now"
 
 local settle = h.settle
 local open_treesitter = h.open_treesitter
+local rows = h.screen_lines
+local embedded = h.embedded
 
 local function write_file(lines, extension)
   local path = vim.fn.tempname() .. (extension or ".md")
@@ -15,36 +17,9 @@ local function write_file(lines, extension)
   return path
 end
 
-local function rows(first, last)
-  local found = {}
-  for row = first, last do
-    found[#found + 1] = h.screen_line(row)
-  end
-  return found
-end
-
 -- Moves the cursor off the rows under test, so 'concealcursor' plays no part.
 local function park_cursor(buf)
   vim.api.nvim_win_set_cursor(0, { vim.api.nvim_buf_line_count(buf), 0 })
-end
-
--- A child Neovim, for what this process cannot show: a UI.
--- Returns a function that makes RPC requests to it and one that stops it.
-local function embedded()
-  local child = vim.fn.jobstart({
-    vim.v.progpath,
-    "--embed",
-    "--noplugin",
-    "-u",
-    "tests/minimal_init.lua",
-  }, { rpc = true })
-  -- --embed loads the init only once a UI attaches.
-  vim.rpcrequest(child, "nvim_ui_attach", 90, 14, {})
-  return function(...)
-    return vim.rpcrequest(child, ...)
-  end, function()
-    vim.fn.jobstop(child)
-  end
 end
 
 describe("links", function()
