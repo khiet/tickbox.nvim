@@ -20,8 +20,9 @@ end
 
 -- Where the cursor goes from 0-indexed `col`, or nil to leave it. `direction` is "right",
 -- "left", or nil for arriving from another line. A move right or left carries on past the
--- hidden text the way it was going; an arrival settles on the label's nearer end. Loops
--- because skipping one link can land on the hidden text of the next.
+-- hidden text the way it was going, except right off a link that ends the line, which
+-- stops on the label; an arrival settles on the label's nearer end. Loops because skipping
+-- one link can land on the hidden text of the next.
 local function resolve(line, links, col, direction)
   local moved
   for _ = 1, #links + 1 do
@@ -78,7 +79,7 @@ local function on_moved()
   end
 end
 
--- Safe to call repeatedly. Expects `buffers.setup` to have run first.
+-- Safe to call repeatedly.
 function M.start()
   vim.api.nvim_clear_autocmds({ group = group })
   vim.api.nvim_create_autocmd("CursorMoved", {
