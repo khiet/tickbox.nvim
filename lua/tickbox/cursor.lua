@@ -18,22 +18,23 @@ local function char_start(line, col)
   return col + vim.str_utf_start(line, col + 1)
 end
 
--- Where the cursor goes from 0-indexed `col`, or nil to leave it. Moving right skips past
--- the link; moving left, or arriving from another line, settles on the label's nearer end.
--- Loops because skipping one link can land on the hidden text of the next.
-local function resolve(line, links, col, rightward)
+-- Where the cursor goes from 0-indexed `col`, or nil to leave it. `direction` is "right",
+-- "left", or nil for arriving from another line. A move right or left carries on past the
+-- hidden text the way it was going; an arrival settles on the label's nearer end. Loops
+-- because skipping one link can land on the hidden text of the next.
+local function resolve(line, links, col, direction)
   local moved
   for _ = 1, #links + 1 do
     local target
     for _, link in ipairs(links) do
       if col >= link.start and col < link.label_start then
-        if not rightward and link.start > 0 then
+        if direction == "left" and link.start > 0 then
           target = char_start(line, link.start - 1)
         else
           target = link.label_start
         end
       elseif col >= link.label_end and col < link.stop then
-        if rightward and link.stop < #line then
+        if direction == "right" and link.stop < #line then
           target = link.stop
         else
           target = char_start(line, link.label_end - 1)
@@ -65,9 +66,12 @@ local function on_moved()
   if not task or #task.links == 0 then
     return
   end
-  local rightward = previous ~= nil and previous.buf == buf and previous.row == row and col > previous.col
+  local direction
+  if previous and previous.buf == buf and previous.row == row then
+    direction = col > previous.col and "right" or "left"
+  end
   local line = vim.api.nvim_buf_get_lines(buf, row - 1, row, false)[1]
-  local target = resolve(line, task.links, col, rightward)
+  local target = resolve(line, task.links, col, direction)
   if target then
     vim.api.nvim_win_set_cursor(win, { row, target })
     last[win].col = target

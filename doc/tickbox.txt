@@ -230,10 +230,11 @@ autolinks, links in code spans, and links with an empty label or URL.
 In normal and command mode the cursor line stays drawn, so lines keep their
 width as the cursor moves. The line being typed on shows the raw link, which
 is how you edit a URL, and so does the cursor line in visual mode. In normal
-mode a motion that lands on a hidden bracket or URL moves on to the label, so
-|l| and |h| step over the link as if only the label were there: rightward to
-the character after the link, otherwise onto the label. To put the cursor on
-the URL, use visual or insert mode. `:Tickbox disable` shows links raw.
+mode a motion that lands on a hidden bracket or URL carries on past it the way
+it was going, so |l| and |h| step over the link as if only the label were
+there. Arriving from another line, as with |j| or |k|, lands on the label. To
+put the cursor on the URL, use visual or insert mode. `:Tickbox disable` shows
+links raw.
 
 Hiding text takes 'conceallevel' above 0, where Neovim's markdown queries
 would also conceal every other line. So in an attached buffer with a normal

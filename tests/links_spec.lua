@@ -307,12 +307,17 @@ describe("links", function()
         assert.are.equal(a, col())
       end)
 
-      it("settles on the label when arriving from another line", function()
-        open_treesitter({ TASK, string.rep("x", 40) })
-        -- Column 30 on the line above falls inside the hidden url.
-        vim.api.nvim_win_set_cursor(0, { 2, 30 })
-        move("k")
-        assert.are.same({ 1, LABEL_END }, vim.api.nvim_win_get_cursor(0))
+      it("settles on the label's nearer end when arriving from another line", function()
+        local bracket = TASK:find("[", 7, true) - 1
+        for _, case in ipairs({
+          { "the hidden url", 30, LABEL_END },
+          { "the hidden bracket", bracket, bracket + 1 },
+        }) do
+          open_treesitter({ TASK, string.rep("x", 40) })
+          vim.api.nvim_win_set_cursor(0, { 2, case[2] })
+          move("k")
+          assert.are.same({ 1, case[3] }, vim.api.nvim_win_get_cursor(0), case[1])
+        end
       end)
 
       it("lands on the whole last character of a multibyte label", function()
