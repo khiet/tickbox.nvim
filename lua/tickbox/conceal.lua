@@ -110,6 +110,16 @@ function M.view(win, buf)
   return view
 end
 
+-- Whether link marks hide text on the cursor line of the current window right now. The
+-- Revealed line is never drawn, so insert and replace mode always show it raw.
+function M.hides_cursor_links(win, buf)
+  if not M.view(win, buf).links then
+    return false
+  end
+  local flag = cursor_flag(vim.api.nvim_get_mode().mode)
+  return flag ~= nil and flag ~= "i" and vim.wo[win].concealcursor:find(flag, 1, true) ~= nil
+end
+
 local function strip_conceal(source)
   -- The value may hold an escaped quote, as in conceal "\"".
   return (source:gsub('%(#set!%s+[@%w_.%-]*%s*"?conceal[_%w]*"?%s+"[^\n]-"%s*%)', ""))

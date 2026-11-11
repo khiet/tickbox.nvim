@@ -1,6 +1,7 @@
 local buffers = require("tickbox.buffers")
 local fold = require("tickbox.fold")
 local conceal = require("tickbox.conceal")
+local cursor = require("tickbox.cursor")
 local render = require("tickbox.render")
 local state = require("tickbox.state")
 local toggle = require("tickbox.toggle")
@@ -41,6 +42,7 @@ function M.setup(opts)
   buffers.setup(vim.tbl_deep_extend("force", defaults, opts or {}))
   fold.start()
   conceal.start()
+  cursor.start()
   render.start()
   started = true
 end

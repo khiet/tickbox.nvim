@@ -247,6 +247,75 @@ describe("links", function()
       end)
     end)
 
+    describe("normal-mode motions", function()
+      -- 0-indexed columns in TASK: the "3" ending the label, and the space after the link.
+      local LABEL_END = TASK:find("3]", 1, true) - 1
+      local AFTER = TASK:find(") now", 1, true)
+
+      local function col()
+        return vim.api.nvim_win_get_cursor(0)[2]
+      end
+
+      -- Fed keys never leave the typeahead empty, which CursorMoved waits for, so it is
+      -- fired by hand: before, to record where the move starts, and after it.
+      local function move(keys)
+        vim.cmd("doautocmd CursorMoved")
+        h.type(keys)
+        vim.cmd("doautocmd CursorMoved")
+      end
+
+      it("steps right off the label past the hidden url", function()
+        open_treesitter({ TASK, "last" })
+        vim.api.nvim_win_set_cursor(0, { 1, LABEL_END })
+        move("l")
+        assert.are.equal(AFTER, col())
+      end)
+
+      it("steps left from after the link onto the label", function()
+        open_treesitter({ TASK, "last" })
+        vim.api.nvim_win_set_cursor(0, { 1, AFTER })
+        move("h")
+        assert.are.equal(LABEL_END, col())
+      end)
+
+      it("steps over the hidden bracket both ways", function()
+        open_treesitter({ TASK, "last" })
+        local before = TASK:find("[", 7, true) - 2
+        vim.api.nvim_win_set_cursor(0, { 1, before })
+        move("l")
+        assert.are.equal(before + 2, col())
+        move("h")
+        assert.are.equal(before, col())
+      end)
+
+      it("stops on the label at the end of the line", function()
+        local line = "- [ ] see [ABC-123](" .. URL .. ")"
+        open_treesitter({ line, "last" })
+        vim.api.nvim_win_set_cursor(0, { 1, 0 })
+        move("$")
+        assert.are.equal(LABEL_END, col())
+      end)
+
+      it("crosses adjacent links", function()
+        local line = "- [ ] [a](" .. URL .. ")[b](" .. URL .. ") x"
+        open_treesitter({ line, "last" })
+        local a = line:find("a]", 1, true) - 1
+        vim.api.nvim_win_set_cursor(0, { 1, a })
+        move("l")
+        assert.are.equal(line:find("b]", 1, true) - 1, col())
+        move("h")
+        assert.are.equal(a, col())
+      end)
+
+      it("leaves the cursor in the url with links off", function()
+        tickbox.setup({ compact = false, links = false })
+        open_treesitter({ TASK, "last" })
+        vim.api.nvim_win_set_cursor(0, { 1, LABEL_END })
+        move("l")
+        assert.are.equal(LABEL_END + 1, col())
+      end)
+    end)
+
     describe("gx", function()
       for _, case in ipairs({ { "the label", 12 }, { "a bracket", 10 }, { "the hidden url", 30 } }) do
         it("finds the url from " .. case[1], function()
