@@ -307,6 +307,34 @@ describe("links", function()
         assert.are.equal(a, col())
       end)
 
+      it("settles on the label when arriving from another line", function()
+        open_treesitter({ TASK, string.rep("x", 40) })
+        -- Column 30 on the line above falls inside the hidden url.
+        vim.api.nvim_win_set_cursor(0, { 2, 30 })
+        move("k")
+        assert.are.same({ 1, LABEL_END }, vim.api.nvim_win_get_cursor(0))
+      end)
+
+      it("lands on the whole last character of a multibyte label", function()
+        local line = "- [ ] see [café](" .. URL .. ") now"
+        open_treesitter({ line, "last" })
+        vim.api.nvim_win_set_cursor(0, { 1, (line:find(") now", 1, true)) })
+        move("h")
+        assert.are.equal(line:find("é]", 1, true) - 1, col())
+      end)
+
+      it("leaves the cursor in the url in visual mode, where the line draws raw", function()
+        open_treesitter({ TASK, "last" })
+        vim.api.nvim_win_set_cursor(0, { 1, LABEL_END })
+        vim.cmd("doautocmd CursorMoved")
+        local seen
+        h.type("vl<PROBE><Esc>", function()
+          vim.cmd("doautocmd CursorMoved")
+          seen = col()
+        end)
+        assert.are.equal(LABEL_END + 1, seen)
+      end)
+
       it("leaves the cursor in the url with links off", function()
         tickbox.setup({ compact = false, links = false })
         open_treesitter({ TASK, "last" })
