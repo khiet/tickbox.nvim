@@ -205,10 +205,12 @@ the prefix only at its first byte, the box. For `- [x] foo`:
   no text
 - |j| and |k| onto the hidden prefix settle on the box
 
-On a single-digit ordered task such as `1. [ ] foo`, |w| from the box lands on
-the space and takes a second press to reach the text. Operators such as |dw|
-and |x| still act on the raw bytes. The cursor goes anywhere in the prefix in
-visual mode, on the line being typed on, and wherever the padded box is drawn.
+On an ordered task, a jump that lands one byte right of the box cannot be told
+from |l|: |w| on `1. [ ] foo` and |e| on `10. [ ] foo` land on the space and
+take a second press to reach the text. Operators such as |dw| and |x| still
+act on the raw bytes. The cursor goes anywhere in the prefix in visual mode,
+on the line being typed on, and wherever the padded box is drawn; back in
+normal mode it settles on the box.
 
 Hiding text works as it does for `links`: see |tickbox-links| for the window
 options this sets, the highlighter it replaces and which buffers qualify. A

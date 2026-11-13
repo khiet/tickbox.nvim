@@ -11,7 +11,7 @@ local M = {}
 local group = vim.api.nvim_create_augroup("tickbox_cursor", { clear = true })
 
 -- By window, where the cursor was after the last move, { buf, row, col }. Gives the
--- direction of a move, which decides the side of the link the cursor lands on.
+-- direction of a move, which decides the side of the hidden text the cursor lands on.
 local last = {}
 
 -- The byte where the character holding 0-indexed byte `col` starts.
@@ -30,8 +30,9 @@ end
 -- `prefix`, when the Compact box is drawn, is { start, stop, step }: the box's byte, the
 -- space after the prefix, and whether the move was one byte right off the box. The cursor
 -- rests on the prefix only at the box. A step lands on the space, since that is the next
--- cell drawn; any longer move right was aimed past the prefix, so it lands on the text,
--- or on the space when the task has none. Everything else lands on the box.
+-- cell drawn; any longer move right was aimed past the prefix, so it lands on the first
+-- non-blank of the text, or on the space when the task has none. Everything else lands on
+-- the box.
 local function resolve(line, links, prefix, col, direction)
   local moved
   for _ = 1, #links + 2 do
@@ -39,10 +40,11 @@ local function resolve(line, links, prefix, col, direction)
     if prefix and col > prefix.start and col < prefix.stop then
       if direction ~= "right" then
         target = prefix.start
-      elseif prefix.step or prefix.stop + 1 >= #line then
+      elseif prefix.step then
         target = prefix.stop
       else
-        target = prefix.stop + 1
+        local text = line:find("%S", prefix.stop + 1)
+        target = text and text - 1 or prefix.stop
       end
     end
     for _, link in ipairs(links) do
@@ -71,7 +73,8 @@ local function resolve(line, links, prefix, col, direction)
   return moved
 end
 
-local function on_moved()
+-- `arrived` treats the cursor as new to the line whatever the last position says.
+local function on_moved(arrived)
   local win = vim.api.nvim_get_current_win()
   local buf = vim.api.nvim_get_current_buf()
   local row, col = unpack(vim.api.nvim_win_get_cursor(win))
@@ -91,7 +94,7 @@ local function on_moved()
     return
   end
   local direction
-  if previous and previous.buf == buf and previous.row == row then
+  if not arrived and previous and previous.buf == buf and previous.row == row then
     direction = col > previous.col and "right" or "left"
   end
   local prefix = compact
@@ -113,7 +116,18 @@ function M.start()
   vim.api.nvim_clear_autocmds({ group = group })
   vim.api.nvim_create_autocmd("CursorMoved", {
     group = group,
-    callback = on_moved,
+    callback = function()
+      on_moved(false)
+    end,
+  })
+  -- Visual, insert and replace mode let the cursor into hidden text, and leaving them does
+  -- not always fire CursorMoved.
+  vim.api.nvim_create_autocmd("ModeChanged", {
+    group = group,
+    pattern = "*:n",
+    callback = function()
+      on_moved(true)
+    end,
   })
   vim.api.nvim_create_autocmd("WinClosed", {
     group = group,

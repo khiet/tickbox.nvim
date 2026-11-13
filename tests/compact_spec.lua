@@ -176,6 +176,12 @@ describe("compact", function()
         assert.are.equal(SPACE, col())
       end)
 
+      it("lands on the first word past extra spaces after the prefix", function()
+        open_at({ "- [ ]   foo", "last" }, 1, BOX)
+        move("w")
+        assert.are.equal(8, col())
+      end)
+
       it("treats the box of a nested task the same, and leaves its indentation alone", function()
         open_at({ "- [ ] parent", "  - [ ] foo" }, 2, 0)
         local seen = {}
@@ -194,12 +200,17 @@ describe("compact", function()
         assert.are.equal(SPACE, col())
       end)
 
-      -- `l` and `w` both land on the "." here, so `w` takes a second press to reach the text.
-      it("stops on the space with w from the box of a single-digit ordered task", function()
+      -- A jump that lands one byte right of the box looks like `l`, so it takes a second
+      -- press to reach the text.
+      it("stops on the space with a jump one byte right off an ordered task's box", function()
         open_at({ "1. [ ] foo", "last" }, 1, BOX)
         move("w")
         assert.are.equal(6, col())
         move("w")
+        assert.are.equal(7, col())
+
+        open_at({ "10. [ ] foo", "last" }, 1, BOX)
+        move("e")
         assert.are.equal(7, col())
       end)
 
@@ -223,6 +234,18 @@ describe("compact", function()
           seen = col()
         end)
         assert.are.equal(BOX + 1, seen)
+      end)
+
+      it("settles on the box when visual mode ends inside the prefix", function()
+        open_at({ TASK, "last" }, 1, BOX)
+        h.type("vll<Esc>")
+        assert.are.equal(BOX, col())
+      end)
+
+      it("settles on the box when insert mode ends inside the prefix", function()
+        open_at({ TASK, "last" }, 1, TEXT)
+        h.type("i<Left><Left><Left><Esc>")
+        assert.are.equal(BOX, col())
       end)
 
       it("lets the cursor into the prefix where the window pads the cursor line", function()
