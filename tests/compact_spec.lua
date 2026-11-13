@@ -108,6 +108,138 @@ describe("compact", function()
       end)
     end)
 
+    describe("normal-mode motions", function()
+      -- 0-indexed columns in TASK: the box, the space after the prefix, and the text.
+      local TASK = "- [x] #114"
+      local BOX, SPACE, TEXT = 0, 5, 6
+
+      local function col()
+        return vim.api.nvim_win_get_cursor(0)[2]
+      end
+
+      -- Fed keys never leave the typeahead empty, which CursorMoved waits for, so it is
+      -- fired by hand: before, to record where the move starts, and after it.
+      local function move(keys)
+        vim.cmd("doautocmd CursorMoved")
+        h.type(keys)
+        vim.cmd("doautocmd CursorMoved")
+      end
+
+      local function open_at(lines, row, column)
+        h.open_treesitter(lines)
+        vim.api.nvim_win_set_cursor(0, { row, column })
+      end
+
+      it("steps left from the text onto the space, then the box", function()
+        open_at({ TASK, "last" }, 1, TEXT)
+        move("h")
+        assert.are.equal(SPACE, col())
+        move("h")
+        assert.are.equal(BOX, col())
+      end)
+
+      it("steps right off the box onto the space, then the text", function()
+        open_at({ TASK, "last" }, 1, BOX)
+        move("l")
+        assert.are.equal(SPACE, col())
+        move("l")
+        assert.are.equal(TEXT, col())
+      end)
+
+      it("lands on the box from the text with a jump left", function()
+        for _, keys in ipairs({ "b", "ge", "F[" }) do
+          open_at({ TASK, "last" }, 1, TEXT)
+          move(keys)
+          assert.are.equal(BOX, col(), keys)
+        end
+      end)
+
+      it("lands on the text from the box with a jump right", function()
+        for _, keys in ipairs({ "w", "W", "e" }) do
+          open_at({ TASK, "last" }, 1, BOX)
+          move(keys)
+          assert.are.equal(TEXT, col(), keys)
+        end
+      end)
+
+      it("settles on the box when arriving on a hidden byte from another line", function()
+        for _, case in ipairs({ { "j", 1 }, { "k", 3 } }) do
+          open_at({ "xxxxxxxx", TASK, "xxxxxxxx" }, case[2], 3)
+          move(case[1])
+          assert.are.same({ 2, BOX }, vim.api.nvim_win_get_cursor(0), case[1])
+        end
+      end)
+
+      it("stops on the space of a task with no text", function()
+        open_at({ "- [ ] ", "last" }, 1, BOX)
+        move("w")
+        assert.are.equal(SPACE, col())
+      end)
+
+      it("treats the box of a nested task the same, and leaves its indentation alone", function()
+        open_at({ "- [ ] parent", "  - [ ] foo" }, 2, 0)
+        local seen = {}
+        for step = 1, 4 do
+          move("l")
+          seen[step] = col()
+        end
+        -- The second indent space, the box, the space after the prefix, then "f".
+        assert.are.same({ 1, 2, 7, 8 }, seen)
+      end)
+
+      it("keeps the box as the only stop under an icon as wide as the prefix", function()
+        tickbox.setup({ icons = { unchecked = "[todo" } })
+        open_at({ "- [ ] foo", "last" }, 1, BOX)
+        move("l")
+        assert.are.equal(SPACE, col())
+      end)
+
+      -- `l` and `w` both land on the "." here, so `w` takes a second press to reach the text.
+      it("stops on the space with w from the box of a single-digit ordered task", function()
+        open_at({ "1. [ ] foo", "last" }, 1, BOX)
+        move("w")
+        assert.are.equal(6, col())
+        move("w")
+        assert.are.equal(7, col())
+      end)
+
+      it("composes with a link that starts the text", function()
+        local line = "- [ ] [ABC-123](" .. URL .. ") now"
+        open_at({ line, "last" }, 1, BOX)
+        move("w")
+        assert.are.equal(line:find("ABC", 1, true) - 1, col())
+        move("h")
+        assert.are.equal(SPACE, col())
+        move("h")
+        assert.are.equal(BOX, col())
+      end)
+
+      it("lets the cursor into the prefix in visual mode, where the box is padded", function()
+        open_at({ TASK, "last" }, 1, BOX)
+        vim.cmd("doautocmd CursorMoved")
+        local seen
+        h.type("vl<PROBE><Esc>", function()
+          vim.cmd("doautocmd CursorMoved")
+          seen = col()
+        end)
+        assert.are.equal(BOX + 1, seen)
+      end)
+
+      it("lets the cursor into the prefix where the window pads the cursor line", function()
+        open_at({ TASK, "last" }, 1, BOX)
+        vim.opt_local.concealcursor = ""
+        move("l")
+        assert.are.equal(BOX + 1, col())
+      end)
+
+      it("lets the cursor into the prefix after :Tickbox disable", function()
+        open_at({ TASK, "last" }, 1, BOX)
+        vim.cmd("Tickbox disable")
+        move("l")
+        assert.are.equal(BOX + 1, col())
+      end)
+    end)
+
     describe("visual mode", function()
       -- Each selection is on the task text: an overlay is hidden where the text under it is
       -- selected, so a selected prefix shows raw with either box.
@@ -269,6 +401,16 @@ describe("compact", function()
       h.open_treesitter({ LINK_TASK, "last" })
       vim.api.nvim_win_set_cursor(0, { 2, 0 })
       assert.are.equal(h.UNCHECKED .. "     see ABC-123 now", h.screen_line(1))
+    end)
+
+    it("lets the cursor into the prefix", function()
+      tickbox.setup({ compact = false })
+      h.open_treesitter({ "- [x] #114", "last" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      vim.cmd("doautocmd CursorMoved")
+      h.type("l")
+      vim.cmd("doautocmd CursorMoved")
+      assert.are.equal(1, vim.api.nvim_win_get_cursor(0)[2])
     end)
   end)
 
