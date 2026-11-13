@@ -120,6 +120,15 @@ function M.hides_cursor_links(win, buf)
   return flag ~= nil and flag ~= "i" and vim.wo[win].concealcursor:find(flag, 1, true) ~= nil
 end
 
+-- Whether the cursor line of the current window draws the Compact box right now, as
+-- opposed to the Padded box or the raw Revealed line.
+function M.draws_cursor_compact(win, buf)
+  if cursor_flag(vim.api.nvim_get_mode().mode) == "i" then
+    return false
+  end
+  return M.view(win, buf).hides(vim.api.nvim_win_get_cursor(win)[1] - 1)
+end
+
 local function strip_conceal(source)
   -- The value may hold an escaped quote, as in conceal "\"".
   return (source:gsub('%(#set!%s+[@%w_.%-]*%s*"?conceal[_%w]*"?%s+"[^\n]-"%s*%)', ""))

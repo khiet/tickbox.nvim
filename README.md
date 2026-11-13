@@ -138,11 +138,12 @@ With `fold = true`, headings that have tasks under them fold with the native `za
 
 `compact` is on by default. `- [x] buy milk` draws as the box, one space and `buy milk`: the rest of `- [x]` is hidden, so lines indented under a task line up with its text. The text does not change. With `compact = false` the box is padded to the width of `- [x]` instead, and the text stays in its raw column.
 
-The padded box also draws wherever Neovim would show the hidden text: on every line of a visual selection, in a window at `conceallevel` 0 or 1, and in a buffer without a treesitter highlighter, such as markdown on Neovim 0.10 and 0.11 unless you start one. Three costs come with hiding text:
+The padded box also draws wherever Neovim would show the hidden text: on every line of a visual selection, in a window at `conceallevel` 0 or 1, and in a buffer without a treesitter highlighter, such as markdown on Neovim 0.10 and 0.11 unless you start one. Two costs come with hiding text:
 
 - Neovim wraps on the raw width, so a task line wraps 4 cells early.
 - The text shifts 4 cells right while you type on a line or select it.
-- Horizontal motions still cross the hidden prefix, so `l` appears to pause there.
+
+In normal mode the cursor treats the compact box as one character: `l` from the box lands on the space before the text, `h` from there lands back on the box, and `w` from the box lands on the text. Operators such as `dw` still act on the raw text.
 
 Full rules: `:h tickbox-compact`.
 

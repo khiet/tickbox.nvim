@@ -195,6 +195,23 @@ icon:
 In normal and command mode the cursor line stays compact. The line being typed
 on shows its raw text as always.
 
+In normal mode the cursor treats the compact box as one character: it rests on
+the prefix only at its first byte, the box. For `- [x] foo`:
+
+- |h| from `f` lands on the space, and again on the box; |b|, |ge| and |F|
+  from the text land on the box
+- |l| from the box lands on the space, and again on `f`
+- |w|, |W| and |e| from the box land on `f`, or on the space when the task has
+  no text
+- |j| and |k| onto the hidden prefix settle on the box
+
+On an ordered task, a jump that lands one byte right of the box cannot be told
+from |l|: |w| on `1. [ ] foo` and |e| on `10. [ ] foo` land on the space and
+take a second press to reach the text. Operators such as |dw| and |x| still
+act on the raw bytes. The cursor goes anywhere in the prefix in visual mode,
+on the line being typed on, and wherever the padded box is drawn; back in
+normal mode it settles on the box.
+
 Hiding text works as it does for `links`: see |tickbox-links| for the window
 options this sets, the highlighter it replaces and which buffers qualify. A
 buffer needs a treesitter highlighter. Neovim 0.12 starts one for markdown by
@@ -207,8 +224,6 @@ These costs come with hiding text:
 - Neovim wraps on the raw width, so a task line wraps 4 cells early.
 - The text shifts 4 cells right when a line becomes the line being typed on or
   enters a visual selection.
-- Horizontal motions still cross the hidden prefix, so |l| appears to pause
-  there.
 
 ==============================================================================
 LINKS                                                          *tickbox-links*

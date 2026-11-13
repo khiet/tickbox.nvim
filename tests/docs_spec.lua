@@ -115,9 +115,14 @@ describe("docs", function()
   for _, path in ipairs({ "README.md", "doc/tickbox.txt" }) do
     it(path .. " lists the accepted costs of compact", function()
       local doc = read(path):gsub("%s+", " ")
-      for _, cost in ipairs({ "wraps 4 cells early", "shifts 4 cells right", "cross the hidden prefix" }) do
+      for _, cost in ipairs({ "wraps 4 cells early", "shifts 4 cells right" }) do
         assert.is_truthy(doc:find(cost, 1, true), cost)
       end
+    end)
+
+    it(path .. " says the cursor treats the compact box as one character", function()
+      local doc = read(path):gsub("%s+", " ")
+      assert.is_truthy(doc:find("cursor treats the compact box as one character", 1, true))
     end)
   end
 
